@@ -1,0 +1,648 @@
+<title>크고 작은 생물들 솔로 봇</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 게임판을 닮은 4열 행동 칸 격자가 중심, 위에 라운드/차례 바, 오른쪽(모바일은 아래)에 봇 상태와 기록 */
+:root {
+  --meadow: #3f6b34;      /* 게임판 초원 */
+  --meadow-deep: #2c4d25;
+  --straw: #f3dc8a;       /* 행동 칸 노란 바탕 */
+  --straw-edge: #c9a94a;
+  --bg: #eef0e4;          /* 녹색 기운의 밝은 중립 */
+  --surface: #fbfbf5;
+  --fg: #23261c;
+  --muted: #61664f;
+  --line: #d3d6c2;
+  --player: #2c5d9c;      /* 플레이어 일꾼 */
+  --bot: #a33b2b;         /* 봇 일꾼 */
+  --tile-fg: #2e2a17;
+  --ok: #2f7d3b;
+  --font-display: "Do Hyeon", "Noto Sans KR", system-ui, sans-serif;
+  --font-body: "Noto Sans KR", system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --meadow: #4f8442; --meadow-deep: #1b2a17; --straw: #d9c272; --straw-edge: #9c8434;
+  --bg: #151910; --surface: #1f251a; --fg: #e8ebdc; --muted: #a3a98f; --line: #343b2c;
+  --player: #7fa9e6; --bot: #e58a76; --tile-fg: #241f0c; --ok: #7cc788; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --meadow: #4f8442; --meadow-deep: #1b2a17; --straw: #d9c272; --straw-edge: #9c8434;
+  --bg: #151910; --surface: #1f251a; --fg: #e8ebdc; --muted: #a3a98f; --line: #343b2c;
+  --player: #7fa9e6; --bot: #e58a76; --tile-fg: #241f0c; --ok: #7cc788; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+h1 { font-size: 30px; line-height: 1.15; }
+h2 { font-size: 22px; }
+h3 { font-size: 18px; }
+.sub { color: var(--muted); margin: 4px 0 0; }
+.label { font-size: 12px; letter-spacing: .06em; color: var(--muted); font-weight: 500; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); padding: 8px 14px; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible, .space:focus-visible { outline: 3px solid var(--player); outline-offset: 2px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--meadow); border-color: var(--meadow); color: #fff; font-weight: 700; }
+button.primary:hover:not(:disabled) { background: var(--meadow-deep); }
+input, select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Setup */
+.setup { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.modes { display: grid; gap: 8px; }
+.mode { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.mode input { grid-row: span 2; margin-top: 4px; }
+.mode b { font-weight: 700; }
+.mode span { color: var(--muted); font-size: 13px; }
+.mode:has(input:checked) { border-color: var(--meadow); background: color-mix(in srgb, var(--meadow) 9%, var(--surface)); }
+.bld-row { display: grid; grid-template-columns: 2.4em 1fr 4.5em; gap: 8px; align-items: center; }
+.field { display: grid; gap: 4px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.row .field { flex: 1 1 120px; }
+
+/* Play */
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; background: var(--meadow-deep); color: #f4f1dc; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; }
+.status .round { font-family: var(--font-display); font-size: 26px; }
+.pips { display: flex; gap: 4px; }
+.pip { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #f4f1dc88; }
+.pip.done { background: #f4f1dc; }
+.pip.now { background: var(--straw); border-color: var(--straw); }
+.turn { margin-left: auto; font-weight: 700; padding: 4px 12px; border-radius: 99px; background: #ffffff1c; }
+.workers { display: flex; gap: 14px; font-size: 13px; }
+.dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-right: 3px; }
+.dot.p { background: var(--player); } .dot.b { background: var(--bot); }
+
+.play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .play { grid-template-columns: minmax(0, 1fr); } }
+
+.boardwrap { background: var(--meadow); border-radius: 14px; padding: 12px; overflow-x: auto; }
+.board { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; min-width: 520px; }
+.space { position: relative; background: var(--straw); color: var(--tile-fg); border: 2px solid var(--straw-edge); border-radius: 10px; padding: 8px 9px 9px; min-height: 104px; display: grid; grid-template-rows: auto 1fr auto; gap: 4px; text-align: left; }
+.space.click { cursor: pointer; }
+.space.click:hover { box-shadow: 0 0 0 3px #fff8; }
+.space.taken { filter: saturate(.55); }
+.space.lastbot { box-shadow: 0 0 0 3px var(--bot); }
+.space .no { font-family: var(--font-mono); font-size: 12px; background: var(--tile-fg); color: var(--straw); border-radius: 4px; padding: 0 5px; justify-self: start; }
+.space .nm { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.space .ds { font-size: 11.5px; opacity: .78; line-height: 1.3; }
+.goods { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; align-content: end; }
+.chip { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: #fff9; border: 1px solid #0002; white-space: nowrap; }
+.chip.wood { background: #b07a45; color: #fff; } .chip.stone { background: #6f7176; color: #fff; }
+.chip.reed { background: #e8e1c8; } .chip.fence { background: #e2c12f; }
+.chip.sheep { background: #fff; } .chip.pig { background: #2b2b2b; color: #fff; }
+.chip.cow { background: #8a5a35; color: #fff; } .chip.horse { background: #c6955e; color: #fff; }
+.chip.ext { background: #5f8f4e; color: #fff; } .chip.stall { background: #d9d0b0; }
+.occ { display: flex; gap: 4px; position: absolute; top: 7px; right: 7px; }
+.meeple { width: 22px; height: 24px; border-radius: 11px 11px 4px 4px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }
+.meeple.p { background: var(--player); } .meeple.b { background: var(--bot); }
+.space.wide .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.slot { border: 1.5px dashed #0004; border-radius: 6px; padding: 4px 6px; font-size: 11.5px; min-height: 30px; display: flex; align-items: center; gap: 6px; }
+.slot.full { border-style: solid; background: #fff7; }
+@media (max-width: 600px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .boardwrap { padding: 8px; } }
+.legend { color: #f4f1dcd0; font-size: 12px; margin: 8px 2px 0; }
+
+.buildings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+@media (max-width: 560px) { .buildings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.bld { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; min-width: 0; }
+.bld .nm { font-weight: 700; overflow-wrap: anywhere; }
+.bld .own { font-size: 12px; color: var(--muted); }
+.bld.bot { border-color: var(--bot); } .bld.bot .own { color: var(--bot); font-weight: 700; }
+.bld.player { border-color: var(--player); } .bld.player .own { color: var(--player); font-weight: 700; }
+
+.side { display: grid; gap: 14px; min-width: 0; }
+.callout { border-radius: 12px; padding: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; }
+.callout.botmove { border-left: 5px solid var(--bot); }
+.die { font-family: var(--font-mono); font-size: 34px; line-height: 1; color: var(--bot); }
+.botline { display: flex; align-items: center; gap: 14px; }
+.stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px; }
+.stats .v { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.stats .total { font-weight: 700; border-top: 1px solid var(--line); padding-top: 6px; }
+.log { max-height: 260px; overflow: auto; font-size: 13px; display: grid; gap: 3px; padding-right: 4px; }
+.log div { color: var(--muted); } .log div b { color: var(--fg); font-weight: 500; }
+.supply { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.supply b { color: var(--fg); }
+
+/* Modal */
+.modal { position: fixed; inset: 0; background: #0008; display: grid; place-items: center; padding: 16px; z-index: 20; }
+.modal .box { background: var(--surface); color: var(--fg); border-radius: 14px; padding: 18px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90vh; overflow: auto; }
+.choice { display: grid; gap: 8px; }
+.choice button { text-align: left; }
+
+.rules { margin-top: 28px; }
+.rules details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+.rules summary { cursor: pointer; font-weight: 700; }
+.rules .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 10px; }
+.rules ol, .rules ul { margin: 6px 0; padding-left: 20px; max-width: 65ch; }
+.rules li { margin: 2px 0; }
+
+.endgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.verdict { font-family: var(--font-display); font-size: 34px; }
+@media (prefers-reduced-motion: no-preference) { .space.lastbot { animation: pulse 1s ease-out 1; } }
+@keyframes pulse { from { box-shadow: 0 0 0 10px color-mix(in srgb, var(--bot) 30%, transparent); } }
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script>
+(function () {
+"use strict";
+
+// ---------- 정적 데이터 ----------
+const G = { wood: "나무", stone: "돌", reed: "갈대", fence: "경계선", sheep: "양", pig: "돼지", cow: "소", horse: "말" };
+// 게임판 위치 순서(왼→오, 위→아래). 14번은 '특수 건물 짓기'(일꾼 2자리).
+const SPACES = [
+  { id: 1, nm: "시작 플레이어 + 나무", ds: "나무 1개 누적", acc: s => add(s, "wood", 1) },
+  { id: 2, nm: "나무 3개", ds: "나무 3개 누적", acc: s => add(s, "wood", 3) },
+  { id: 3, nm: "돌 1개", ds: "돌 1개 누적", acc: s => add(s, "stone", 1) },
+  { id: 4, nm: "돌 2개", ds: "돌 2개 누적", acc: s => add(s, "stone", 2) },
+  { id: 5, nm: "울타리 치기", ds: "나무 1 → 경계선 1" },
+  { id: 6, nm: "담장 쌓기", ds: "경계선 2개 무료, 추가 돌 2" },
+  { id: 7, nm: "자원 시장", ds: "나무·돌·갈대 1개씩" },
+  { id: 8, nm: "농장 확장", ds: "경계선 1개 누적 + 확장판" },
+  { id: 9, nm: "축사 짓기", ds: "돌 3 + 갈대 1" },
+  { id: 10, nm: "여물통 놓기", ds: "1개 무료, 추가 나무 3" },
+  { id: 11, nm: "갈대와 양", ds: "비면 갈대, 있으면 양 +1", animal: ["reed", "sheep"] },
+  { id: 12, nm: "돼지와 양", ds: "비면 돼지, 있으면 양 +1", animal: ["pig", "sheep"] },
+  { id: 13, nm: "외양간으로 개조", ds: "나무 5 또는 돌 5" },
+  { id: 14, nm: "특수 건물 짓기", ds: "2자리 · 봇은 17–20 번호로 건물 수집", wide: true },
+  { id: 15, nm: "소와 돼지", ds: "비면 소, 있으면 돼지 +1", animal: ["cow", "pig"] },
+  { id: 16, nm: "말과 양", ds: "비면 말, 있으면 양 +1", animal: ["horse", "sheep"] },
+];
+const SP = Object.fromEntries(SPACES.map(s => [s.id, s]));
+const MODES = {
+  easy:  { nm: "쉬움", ds: "플레이어가 항상 선. 봇은 점수 없음 (내 점수 갱신하기)" },
+  normal:{ nm: "보통", ds: "라운드마다 선 플레이어 교대. 라운드 끝에 농장 확장 칸에 경계선 2개 이상이면 봇이 가져가고 확장판도 1개 가져감. 봇 점수 없음" },
+  hard:  { nm: "어려움", ds: "플레이어가 항상 후. 경계선 1개 이상 남으면 봇이 가져감. 봇은 건물 점수 + 경계선·확장판당 2점" },
+  farm:  { nm: "팜마겟돈", ds: "어려움 규칙 + 마지막 라운드 시작 때 봇이 경계선 1개와 확장판 1개를 가져감. 축사는 외양간 점수, 경계선·확장판당 3점" },
+};
+const DEFAULT_BLD = [
+  { name: "특수 건물 A", vp: 2 }, { name: "특수 건물 B", vp: 2 },
+  { name: "특수 건물 C", vp: 3 }, { name: "특수 건물 D", vp: 3 },
+];
+
+function add(goods, k, n) { goods[k] = (goods[k] || 0) + n; }
+function rnd(n) { return 1 + Math.floor(Math.random() * n); }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function goodsText(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map(([k, n]) => `${G[k]} ${n}`).join(", "); }
+
+// ---------- 상태 ----------
+const KEY = "acbs-automa-v1";
+let S = null;          // 게임 상태
+let history = [];      // 되돌리기 스냅샷
+let modal = null;      // { type, ... }
+let botTimer = null;
+
+function freshSetup(prev) {
+  return {
+    phase: "setup",
+    settings: prev?.settings || {
+      mode: "normal", picker: "d20", firstNormal: "player",
+      buildings: DEFAULT_BLD.map(b => ({ ...b })), stallVP: 1, stableVP: 4, extensions: 4, stalls: 4,
+    },
+  };
+}
+
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ S, history: history.slice(-40) })); } catch (e) {} }
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY) || "null"); if (d && d.S) { S = d.S; history = d.history || []; return true; } } catch (e) {}
+  return false;
+}
+function snapshot() { history.push(JSON.stringify(S)); if (history.length > 60) history.shift(); }
+function log(html) { S.log.unshift({ r: S.round, t: html }); }
+
+// ---------- 게임 흐름 ----------
+function startGame() {
+  const st = S.settings;
+  S = {
+    phase: "play", settings: st, round: 0,
+    goods: {}, roundFences: 8,
+    extLeft: +st.extensions, stallsLeft: +st.stalls,
+    buildings: st.buildings.map((b, i) => ({ no: 17 + i, name: b.name || `특수 건물 ${i + 1}`, vp: +b.vp || 0, owner: null })),
+    bot: { fences: 9, ext: 0, stalls: 0 },
+    placed: [], first: "player", turnIdx: 0, deck: [], lastBot: null, log: [], roundDone: false,
+  };
+  history = [];
+  nextRound();
+}
+
+function firstFor(round) {
+  const m = S.settings.mode;
+  if (m === "easy") return "player";
+  if (m === "hard" || m === "farm") return "bot";
+  const f = S.settings.firstNormal;
+  const other = f === "player" ? "bot" : "player";
+  return round % 2 === 1 ? f : other;
+}
+
+function nextRound() {
+  S.round += 1; S.placed = []; S.turnIdx = 0; S.lastBot = null; S.roundDone = false;
+  S.first = firstFor(S.round);
+  // 보충 단계
+  for (const sp of SPACES) {
+    const g = S.goods[sp.id] = S.goods[sp.id] || {};
+    if (sp.acc) sp.acc(g);
+    if (sp.id === 8 && S.roundFences > 0) { S.roundFences -= 1; add(g, "fence", 1); }
+    if (sp.animal) {
+      const empty = !Object.values(g).some(n => n > 0);
+      add(g, empty ? sp.animal[0] : sp.animal[1], 1);
+    }
+  }
+  if (S.settings.picker === "deck") S.deck = shuffle(Array.from({ length: 20 }, (_, i) => i + 1));
+  log(`<b>${S.round}라운드 시작</b> · 선: ${S.first === "player" ? "플레이어" : "봇"}`);
+  if (S.settings.mode === "farm" && S.round === 8) {
+    const g = S.goods[8];
+    let txt = "";
+    if ((g.fence || 0) > 0) { g.fence -= 1; S.bot.fences += 1; txt += "경계선 1개"; }
+    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; txt += (txt ? ", " : "") + "확장판 1개"; }
+    log(`팜마겟돈: 봇이 일꾼 없이 ${txt || "가져갈 것이 없음"}`);
+  }
+}
+
+function whoseTurn() {
+  if (S.placed.length >= 6) return null;
+  const second = S.first === "player" ? "bot" : "player";
+  return S.placed.length % 2 === 0 ? S.first : second;
+}
+function occupied(id) { return S.placed.filter(p => p.space === id); }
+function slotFree() { return occupied(14).length < 2; }
+function botValid(n) {
+  if (n >= 17) { const b = S.buildings[n - 17]; return !b.owner && slotFree(); }
+  if (n === 14) return slotFree();
+  return occupied(n).length === 0;
+}
+
+function botTurn() {
+  const rolls = [];
+  let n;
+  if (S.settings.picker === "d20") {
+    let guard = 0;
+    do { n = rnd(20); rolls.push(n); guard++; } while (!botValid(n) && guard < 500);
+  } else {
+    if (!S.deck.length) S.deck = shuffle(Array.from({ length: 20 }, (_, i) => i + 1));
+    const card = S.deck.shift(); rolls.push(card); n = card;
+    let guard = 0;
+    while (!botValid(n) && guard < 25) { n = n % 20 + 1; guard++; }
+  }
+  const space = n >= 17 ? 14 : n;
+  const g = S.goods[space] || {};
+  const taken = goodsText(g);
+  let gain = [];
+  if (space === 8) {
+    if (g.fence) { S.bot.fences += g.fence; gain.push(`경계선 ${g.fence}`); }
+    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; gain.push("확장판 1"); }
+  } else if (space === 9 && S.stallsLeft > 0) {
+    S.stallsLeft -= 1; S.bot.stalls += 1; gain.push("축사 1");
+  }
+  let bName = null;
+  if (n >= 17) { const b = S.buildings[n - 17]; b.owner = "bot"; bName = b.name; gain.push(`${b.name}`); }
+  S.goods[space] = {};
+  S.placed.push({ space, who: "bot", n, bld: bName });
+  S.lastBot = { n, space, rolls, picker: S.settings.picker, cleared: space === 8 ? "" : taken, gain: gain.join(", ") };
+  const rollTxt = S.settings.picker === "d20" ? `D20: ${rolls.join(" → ")}` : `카드 ${rolls[0]}${rolls[0] !== n ? ` → ${n}` : ""}`;
+  log(`봇 [${rollTxt}] <b>${n}. ${n >= 17 ? bName : SP[space].nm}</b>` +
+      (taken && space !== 8 ? ` · 공동 창고로: ${taken}` : "") + (gain.length ? ` · 수집: ${gain.join(", ")}` : ""));
+}
+
+function playerPlace(id, opt) {
+  snapshot();
+  const g = S.goods[id] || {};
+  const taken = goodsText(g);
+  let extra = "";
+  if (id === 8 && opt?.ext && S.extLeft > 0) { S.extLeft -= 1; extra = " · 확장판 1개 연결"; }
+  if (id === 9 && opt?.stall && S.stallsLeft > 0) { S.stallsLeft -= 1; extra = " · 축사 1개 가져감"; }
+  let bName = null;
+  if (id === 14 && opt?.bld != null) { const b = S.buildings[opt.bld]; b.owner = "player"; bName = b.name; extra = ` · ${b.name} 건설`; }
+  S.goods[id] = {};
+  S.placed.push({ space: id, who: "player", bld: bName });
+  log(`플레이어 <b>${id}. ${SP[id].nm}</b>${taken ? ` · 가져감: ${taken}` : ""}${extra}`);
+  modal = null;
+  afterMove();
+}
+
+function afterMove() {
+  save(); render();
+  scheduleBot();
+}
+function scheduleBot() {
+  clearTimeout(botTimer);
+  if (S.phase === "play" && whoseTurn() === "bot") {
+    botTimer = setTimeout(() => { botTurn(); save(); render(); scheduleBot(); }, 650);
+  }
+}
+
+function endRound() {
+  snapshot();
+  const m = S.settings.mode;
+  const need = m === "normal" ? 2 : (m === "hard" || m === "farm") ? 1 : Infinity;
+  const g = S.goods[8] || {};
+  if ((g.fence || 0) >= need) {
+    const n = g.fence; S.bot.fences += n; g.fence = 0;
+    let t = `경계선 ${n}`;
+    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; t += ", 확장판 1"; }
+    log(`라운드 종료: 농장 확장 칸에서 봇이 ${t} 가져감`);
+  }
+  log(`${S.round}라운드 종료 · 일꾼 회수 후 각자 번식`);
+  if (S.round >= 8) { S.phase = "end"; S.playerScore = S.playerScore ?? ""; }
+  else nextRound();
+  save(); render(); scheduleBot();
+}
+
+function undo() {
+  if (!history.length) return;
+  clearTimeout(botTimer);
+  S = JSON.parse(history.pop());
+  modal = null;
+  save(); render(); scheduleBot();
+}
+
+function botScore() {
+  const m = S.settings.mode;
+  if (m === "easy" || m === "normal") return null;
+  const per = m === "farm" ? 3 : 2;
+  const stallEach = m === "farm" ? +S.settings.stableVP : +S.settings.stallVP;
+  const bld = S.buildings.filter(b => b.owner === "bot").reduce((a, b) => a + b.vp, 0);
+  const parts = {
+    bld, stalls: S.bot.stalls * stallEach, fences: S.bot.fences * per, ext: S.bot.ext * per, per, stallEach,
+  };
+  parts.total = parts.bld + parts.stalls + parts.fences + parts.ext;
+  return parts;
+}
+
+// ---------- 렌더 ----------
+const app = document.getElementById("app");
+
+function header(extra) {
+  return `<header class="top"><div><h1>크고 작은 생물들 솔로 봇</h1>
+    <p class="sub">아그리콜라: 크고 작은 생물들 빅박스 · 1인 플레이용 오토마 (Sam Carpenter 솔로 변형 v1.1)</p></div>
+    <div class="top-actions">${extra || ""}</div></header>`;
+}
+
+function renderSetup() {
+  const st = S.settings;
+  app.innerHTML = header(load0 ? `<button id="resume">저장된 게임 이어하기</button>` : "") + `
+  <div class="setup">
+    <section class="panel"><h2>난이도</h2>
+      <div class="modes">${Object.entries(MODES).map(([k, m]) => `
+        <label class="mode"><input type="radio" name="mode" id="mode-${k}" value="${k}" ${st.mode === k ? "checked" : ""}>
+        <b>${m.nm}</b><span>${m.ds}</span></label>`).join("")}</div>
+      <div class="field" ${st.mode === "normal" ? "" : "hidden"} id="firstWrap"><span class="label">보통 · 1라운드 선 플레이어</span>
+        <select id="firstNormal"><option value="player" ${st.firstNormal === "player" ? "selected" : ""}>플레이어</option>
+        <option value="bot" ${st.firstNormal === "bot" ? "selected" : ""}>봇</option></select></div>
+    </section>
+    <section class="panel"><h2>봇 행동 결정 방식</h2>
+      <label class="mode"><input type="radio" name="picker" id="pk-d20" value="d20" ${st.picker === "d20" ? "checked" : ""}>
+        <b>D20 주사위</b><span>빈 칸이 나올 때까지 다시 굴림</span></label>
+      <label class="mode"><input type="radio" name="picker" id="pk-deck" value="deck" ${st.picker === "deck" ? "checked" : ""}>
+        <b>20장 봇 덱</b><span>라운드마다 섞어서 뽑음. 이미 찬 칸이면 오름차순으로 다음 빈 칸</span></label>
+      <h3>공급 수량</h3>
+      <div class="row">
+        <label class="field"><span class="label">농장 확장판</span><input id="extensions" type="number" min="0" max="9" value="${st.extensions}"></label>
+        <label class="field"><span class="label">축사/외양간 타일</span><input id="stalls" type="number" min="0" max="9" value="${st.stalls}"></label>
+      </div>
+      <div class="row">
+        <label class="field"><span class="label">축사 점수</span><input id="stallVP" type="number" min="0" max="9" value="${st.stallVP}"></label>
+        <label class="field"><span class="label">외양간 점수</span><input id="stableVP" type="number" min="0" max="9" value="${st.stableVP}"></label>
+      </div>
+      <p class="sub" style="font-size:13px">타일에 인쇄된 점수와 다르면 바꿔 주세요. 봇 점수 계산에만 쓰입니다.</p>
+    </section>
+    <section class="panel"><h2>특수 건물 4개 (17–20번)</h2>
+      <p class="sub" style="font-size:13px">이번 게임에 깔아둔 특수 건물의 이름과 점수를 입력하세요.</p>
+      ${st.buildings.map((b, i) => `<div class="bld-row"><span class="num">${17 + i}</span>
+        <input id="bn-${i}" value="${esc(b.name)}" aria-label="${17 + i}번 건물 이름">
+        <input id="bv-${i}" type="number" min="0" max="20" value="${b.vp}" aria-label="${17 + i}번 건물 점수"></div>`).join("")}
+      <button class="primary" id="start">게임 시작</button>
+      <p class="sub" style="font-size:13px">준비: 봇 몫으로 경계선 9개를 상자에 넣고, 남은 경계선 8개는 라운드 표시용으로 둡니다.</p>
+    </section>
+  </div>` + rulesHTML();
+
+  const sync = () => {
+    st.mode = document.querySelector('input[name=mode]:checked').value;
+    st.picker = document.querySelector('input[name=picker]:checked').value;
+    st.firstNormal = document.getElementById("firstNormal").value;
+    for (const k of ["extensions", "stalls", "stallVP", "stableVP"]) st[k] = Math.max(0, +document.getElementById(k).value || 0);
+    st.buildings.forEach((b, i) => { b.name = document.getElementById("bn-" + i).value.trim() || `특수 건물 ${i + 1}`; b.vp = +document.getElementById("bv-" + i).value || 0; });
+    document.getElementById("firstWrap").hidden = st.mode !== "normal";
+  };
+  app.querySelectorAll("input,select").forEach(el => el.addEventListener("change", sync));
+  document.getElementById("start").onclick = () => { sync(); startGame(); save(); render(); scheduleBot(); };
+  const r = document.getElementById("resume");
+  if (r) r.onclick = () => { S = load0.S; history = load0.history || []; load0 = null; render(); scheduleBot(); };
+}
+
+function spaceHTML(sp, myTurn) {
+  const occ = occupied(sp.id);
+  const g = S.goods[sp.id] || {};
+  const chips = Object.entries(g).filter(([, n]) => n > 0).map(([k, n]) => `<span class="chip ${k}">${G[k]} ${n}</span>`).join("");
+  const can = myTurn && playerCan(sp.id);
+  const last = S.lastBot && S.lastBot.space === sp.id && whoseTurn() !== "bot" ? " lastbot" : "";
+  let body;
+  if (sp.wide) {
+    const slots = [0, 1].map(i => {
+      const p = occ[i];
+      if (!p) return `<div class="slot">빈 자리</div>`;
+      return `<div class="slot full"><span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>${esc(p.bld || "건물 없음")}</div>`;
+    }).join("");
+    body = `<div class="slots">${slots}</div>`;
+  } else {
+    body = `<div class="goods">${chips}</div>`;
+  }
+  const meeples = sp.wide ? "" : `<div class="occ">${occ.map(p => `<span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>`).join("")}</div>`;
+  const label = `${sp.id}. ${sp.nm}${chips ? " · " + goodsText(g) : ""}${occ.length ? " · 사용 중" : ""}`;
+  return `<div class="space${sp.wide ? " wide" : ""}${can ? " click" : ""}${occ.length && !sp.wide ? " taken" : ""}${last}"
+    ${can ? `role="button" tabindex="0" data-sp="${sp.id}"` : ""} aria-label="${esc(label)}">
+    <div><span class="no">${sp.id}</span> <span class="nm">${sp.nm}</span><div class="ds">${sp.ds}</div></div>
+    ${meeples}${body}</div>`;
+}
+
+function playerCan(id) {
+  if (id === 14) return slotFree() && S.buildings.some(b => !b.owner);
+  return occupied(id).length === 0;
+}
+
+function renderPlay() {
+  const turn = whoseTurn();
+  const myTurn = turn === "player";
+  const pLeft = 3 - S.placed.filter(p => p.who === "player").length;
+  const bLeft = 3 - S.placed.filter(p => p.who === "bot").length;
+  const pips = Array.from({ length: 8 }, (_, i) => `<span class="pip ${i + 1 < S.round ? "done" : i + 1 === S.round ? "now" : ""}"></span>`).join("");
+  const turnTxt = turn === "player" ? "내 차례 · 칸을 고르세요" : turn === "bot" ? "봇이 고르는 중…" : "일하기 단계 끝";
+  const sc = botScore();
+  const lb = S.lastBot;
+
+  app.innerHTML = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button id="newgame">새 게임</button>`) + `
+  <div class="status">
+    <span class="round">${S.round}라운드</span><span class="pips" aria-label="8라운드 중 ${S.round}라운드">${pips}</span>
+    <span class="workers"><span><span class="dot p"></span>나 ${pLeft}</span><span><span class="dot b"></span>봇 ${bLeft}</span></span>
+    <span class="label" style="color:#f4f1dcb0">${MODES[S.settings.mode].nm} · ${S.settings.picker === "d20" ? "D20" : "봇 덱"}</span>
+    <span class="turn">${turnTxt}</span>
+  </div>
+  <div class="play">
+    <div>
+      <div class="boardwrap"><div class="board">${SPACES.map(sp => spaceHTML(sp, myTurn)).join("")}</div>
+        <p class="legend">노란 칸을 눌러 일꾼을 놓습니다. 칸에 쌓인 물건은 직접 가져가고, 봇이 고른 칸의 물건은 공동 창고로 돌려놓으세요.</p></div>
+      <div class="buildings">${S.buildings.map(b => `<div class="bld ${b.owner || ""}">
+        <span class="label num">${b.no}</span><span class="nm">${esc(b.name)}</span>
+        <span class="own">${b.vp}점 · ${b.owner === "bot" ? "봇이 수집" : b.owner === "player" ? "내가 건설" : "남아 있음"}</span></div>`).join("")}</div>
+    </div>
+    <aside class="side">
+      ${turn === null ? `<div class="callout"><h3>집에 돌아오기 · 번식</h3>
+        <p class="sub" style="margin:0">일꾼 6개를 모두 놓았습니다. 내 농장의 가축을 번식시킨 뒤 라운드를 끝내세요.${S.settings.mode !== "easy" ? " 농장 확장 칸에 남은 경계선은 봇 규칙에 따라 처리됩니다." : ""}</p>
+        <button class="primary" id="endround">${S.round >= 8 ? "게임 종료 · 점수 계산" : `${S.round}라운드 끝내기`}</button></div>` : ""}
+      ${lb ? `<div class="callout botmove"><span class="label">봇의 마지막 행동</span>
+        <div class="botline"><span class="die">${lb.n}</span><div><b>${lb.n >= 17 ? esc(S.buildings[lb.n - 17].name) + " (특수 건물 짓기)" : SP[lb.space].nm}</b>
+        <div class="sub" style="font-size:13px;margin:0">${lb.picker === "d20" ? `굴린 값: ${lb.rolls.join(" → ")}` : `뽑은 카드: ${lb.rolls[0]}${lb.rolls[0] !== lb.n ? ` → 다음 빈 칸 ${lb.n}` : ""}`}</div></div></div>
+        ${lb.cleared ? `<div>공동 창고로 되돌리기: <b>${lb.cleared}</b></div>` : ""}
+        ${lb.gain ? `<div>봇이 수집: <b>${esc(lb.gain)}</b></div>` : ""}</div>` : ""}
+      <div class="callout"><h3>봇 현황</h3>
+        <div class="stats">
+          <span>경계선 (시작 9개 포함)</span><span class="v">${S.bot.fences}</span>
+          <span>확장판</span><span class="v">${S.bot.ext}</span>
+          <span>축사</span><span class="v">${S.bot.stalls}</span>
+          <span>특수 건물</span><span class="v">${S.buildings.filter(b => b.owner === "bot").length}</span>
+          ${sc ? `<span class="total">현재 봇 점수</span><span class="v total">${sc.total}</span>` : `<span class="total">봇 점수</span><span class="v total">없음</span>`}
+        </div>
+        <div class="supply"><span>남은 확장판 <b class="num">${S.extLeft}</b></span><span>남은 축사 <b class="num">${S.stallsLeft}</b></span><span>라운드 경계선 <b class="num">${S.roundFences}</b></span></div>
+      </div>
+      <div class="callout"><h3>기록</h3><div class="log">${S.log.map(l => `<div><span class="num">R${l.r}</span> ${l.t}</div>`).join("")}</div></div>
+    </aside>
+  </div>` + rulesHTML() + modalHTML();
+
+  app.querySelectorAll("[data-sp]").forEach(el => {
+    const go = () => onSpace(+el.dataset.sp);
+    el.onclick = go;
+    el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+  });
+  document.getElementById("undo").onclick = undo;
+  document.getElementById("newgame").onclick = () => { modal = { type: "confirmNew" }; render(); };
+  const er = document.getElementById("endround"); if (er) er.onclick = endRound;
+  bindModal();
+}
+
+function onSpace(id) {
+  if (id === 14) { modal = { type: "bld" }; render(); return; }
+  if (id === 8) { modal = { type: "ext" }; render(); return; }
+  if (id === 9) { modal = { type: "stall" }; render(); return; }
+  playerPlace(id);
+}
+
+function modalHTML() {
+  if (!modal) return "";
+  let inner = "";
+  if (modal.type === "bld") {
+    inner = `<h3>어떤 특수 건물을 짓나요?</h3><div class="choice">${S.buildings.map((b, i) => b.owner ? "" :
+      `<button data-bld="${i}">${b.no}. ${esc(b.name)} <span class="sub">(${b.vp}점)</span></button>`).join("")}</div>`;
+  } else if (modal.type === "ext") {
+    const g = S.goods[8] || {};
+    inner = `<h3>농장 확장</h3><p class="sub" style="margin:0">경계선 ${g.fence || 0}개를 가져갑니다. 남은 확장판: ${S.extLeft}개</p>
+      <div class="choice">${S.extLeft > 0 ? `<button data-opt="ext">경계선 + 확장판 1개 연결</button>` : ""}<button data-opt="none">경계선만 가져가기</button></div>`;
+  } else if (modal.type === "stall") {
+    inner = `<h3>축사 짓기</h3><p class="sub" style="margin:0">남은 축사 타일: ${S.stallsLeft}개</p>
+      <div class="choice">${S.stallsLeft > 0 ? `<button data-opt="stall">축사 1개 짓기</button>` : ""}<button data-opt="none">타일 없이 칸만 사용</button></div>`;
+  } else if (modal.type === "confirmNew") {
+    inner = `<h3>새 게임을 시작할까요?</h3><p class="sub" style="margin:0">진행 중인 게임은 지워집니다.</p>
+      <div class="choice"><button class="primary" data-opt="new">새 게임 설정으로</button></div>`;
+  }
+  return `<div class="modal" id="modal"><div class="box" role="dialog" aria-modal="true">${inner}<button id="mclose">취소</button></div></div>`;
+}
+function bindModal() {
+  const m = document.getElementById("modal"); if (!m) return;
+  document.getElementById("mclose").onclick = () => { modal = null; render(); };
+  m.onclick = e => { if (e.target === m) { modal = null; render(); } };
+  m.querySelectorAll("[data-bld]").forEach(b => b.onclick = () => playerPlace(14, { bld: +b.dataset.bld }));
+  m.querySelectorAll("[data-opt]").forEach(b => b.onclick = () => {
+    const o = b.dataset.opt;
+    if (o === "new") { clearTimeout(botTimer); S = freshSetup(S); history = []; modal = null; save(); render(); return; }
+    if (modal.type === "ext") playerPlace(8, { ext: o === "ext" });
+    else if (modal.type === "stall") playerPlace(9, { stall: o === "stall" });
+  });
+  const first = m.querySelector(".choice button"); if (first) first.focus();
+}
+
+function renderEnd() {
+  const sc = botScore();
+  const ps = S.playerScore;
+  const has = ps !== "" && ps != null && !isNaN(+ps);
+  let verdict = "";
+  if (has) {
+    if (sc) verdict = +ps > sc.total ? "승리!" : +ps === sc.total ? "동점" : "봇의 승리";
+    else verdict = `${+ps}점`;
+  }
+  let best = null; try { best = +localStorage.getItem(KEY + "-best-" + S.settings.mode) || null; } catch (e) {}
+  app.innerHTML = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
+  <div class="endgrid">
+    <section class="panel"><h2>봇 최종 점수 · ${MODES[S.settings.mode].nm}</h2>
+      ${sc ? `<div class="stats">
+        <span>특수 건물 (${S.buildings.filter(b => b.owner === "bot").map(b => esc(b.name)).join(", ") || "없음"})</span><span class="v">${sc.bld}</span>
+        <span>축사 ${S.bot.stalls}개 × ${sc.stallEach}</span><span class="v">${sc.stalls}</span>
+        <span>경계선 ${S.bot.fences}개 × ${sc.per}</span><span class="v">${sc.fences}</span>
+        <span>확장판 ${S.bot.ext}개 × ${sc.per}</span><span class="v">${sc.ext}</span>
+        <span class="total">합계</span><span class="v total">${sc.total}</span></div>`
+      : `<p class="sub">이 난이도에서 봇은 점수를 얻지 않습니다. 내 최고 점수를 넘어 보세요.</p>
+         <div class="stats"><span>봇이 가져간 경계선</span><span class="v">${S.bot.fences}</span><span>봇이 가져간 확장판</span><span class="v">${S.bot.ext}</span></div>`}
+    </section>
+    <section class="panel"><h2>내 점수</h2>
+      <label class="field"><span class="label">점수기록용지 합계 (가축 + 추가 + 확장 + 건물)</span>
+        <input id="pscore" type="number" inputmode="numeric" value="${has ? +ps : ""}" placeholder="예: 42"></label>
+      ${has ? `<div class="verdict">${verdict}</div>` : ""}
+      ${best ? `<p class="sub">이 난이도 내 최고 점수: <b class="num">${best}</b></p>` : ""}
+    </section>
+    <section class="panel"><h3>게임 기록</h3><div class="log">${S.log.map(l => `<div><span class="num">R${l.r}</span> ${l.t}</div>`).join("")}</div></section>
+  </div>` + modalHTML();
+  document.getElementById("pscore").onchange = e => {
+    S.playerScore = e.target.value;
+    try { const k = KEY + "-best-" + S.settings.mode; const v = +e.target.value; if (v > (+localStorage.getItem(k) || 0)) localStorage.setItem(k, v); } catch (er) {}
+    save(); render();
+  };
+  document.getElementById("undo").onclick = undo;
+  document.getElementById("newgame").onclick = () => { S = freshSetup(S); history = []; save(); render(); };
+  bindModal();
+}
+
+function rulesHTML() {
+  return `<section class="rules"><details><summary>솔로 변형 규칙 요약과 칸 번호</summary><div class="cols">
+    <div><h3>칸 번호 (왼쪽 위 → 오른쪽, 다음 줄)</h3><ol>${SPACES.map(s => `<li>${s.nm}</li>`).join("")}
+      <li value="17">17–20: 준비한 특수 건물 4개 (봇은 특수 건물 짓기 칸에 일꾼을 놓고 해당 건물을 수집)</li></ol></div>
+    <div><h3>봇 규칙</h3><ul>
+      <li>봇은 농장판이 없고 건물·울타리를 짓지 않습니다. 칸을 막고, 그 칸에 쌓인 자원·가축을 공동 창고로 돌려놓습니다.</li>
+      <li>농장 확장 칸에서는 경계선과 확장판 1개를 수집합니다 (게임에서 제거).</li>
+      <li>축사 짓기 칸에서는 축사 타일 1개를 수집합니다.</li>
+      <li>14번(특수 건물 짓기)이 나오면 건물 없이 자리만 막습니다. 17–20번 건물이 이미 없거나 자리가 차면 다시 굴립니다.</li>
+      <li>D20: 빈 칸이 나올 때까지 다시 굴림. 봇 덱: 이미 찬 칸이면 번호가 큰 쪽으로 다음 빈 칸 (20 다음은 1).</li>
+      <li>각자 일꾼 3개, 차례를 번갈아 놓고 8라운드를 진행합니다.</li></ul>
+      <p class="sub" style="font-size:13px">14번 처리와 덱 섞는 시점은 원문에 명시되지 않아 이 앱에서 정한 방식입니다.</p></div>
+  </div></details></section>`;
+}
+
+function render() {
+  if (S.phase === "setup") renderSetup();
+  else if (S.phase === "play") renderPlay();
+  else renderEnd();
+}
+
+// ---------- 시작 ----------
+let load0 = null;
+function start(hot) {
+  if (hot && hot.S) { S = hot.S; history = hot.history || []; }
+  else {
+    if (load()) {
+      if (S.phase === "setup") { /* keep settings */ }
+      else { load0 = { S, history }; S = freshSetup(S); history = []; }
+    } else S = freshSetup(null);
+  }
+  render(); scheduleBot();
+}
+window.claude?.hot?.snapshot?.(() => ({ S, history }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
