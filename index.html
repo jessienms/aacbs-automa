@@ -35,6 +35,7 @@
   --player: #7fa9e6; --bot: #e58a76; --tile-fg: #241f0c; --ok: #7cc788; color-scheme: dark }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
 .wrap { max-width: 1120px; margin: 0 auto; padding-block: 20px 48px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -65,7 +66,7 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .mode b { font-weight: 700; }
 .mode span { color: var(--muted); font-size: 13px; }
 .mode:has(input:checked) { border-color: var(--meadow); background: color-mix(in srgb, var(--meadow) 9%, var(--surface)); }
-.bld-row { display: grid; grid-template-columns: 2.4em 1fr 4.5em; gap: 8px; align-items: center; }
+.bld-row { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) 3em; gap: 8px; align-items: center; }
 .field { display: grid; gap: 4px; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .row .field { flex: 1 1 120px; }
@@ -206,6 +207,26 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
   #start { display: none; }
 }
 @keyframes pulse { from { box-shadow: 0 0 0 10px color-mix(in srgb, var(--bot) 30%, transparent); } }
+
+/* 설정: 특수 건물 드롭다운 */
+.bld-row select { width: 100%; }
+.bld-row .vp { text-align: right; font-size: 13px; }
+.bld-note { font-size: 12px; color: var(--muted); margin: -6px 0 0 2.9em; }
+/* 봇 알림 */
+.notice { border-top: 5px solid var(--bot); }
+.takes { margin: 0; padding-left: 20px; font-weight: 700; }
+/* 점수 계산 */
+.endsum { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 32px; background: var(--meadow-deep); color: #f4f1dc; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; }
+.endsum .label { color: #f4f1dcb0; }
+.endsum .big { font-size: 38px; line-height: 1.1; }
+.endsum .verdict { margin-left: auto; color: var(--straw); }
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) 5.5em 3.2em; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.srow .sl { min-width: 0; display: grid; }
+.srow .sl small { color: var(--muted); font-size: 12px; }
+.srow select { width: 100%; min-height: 40px; }
+.srow .sp { text-align: right; font-weight: 700; }
+.srow.total { border-bottom: 0; border-top: 2px solid var(--fg); font-size: 18px; font-weight: 700; }
+.panel h3 { margin-top: 6px; }
 </style>
 
 <div class="wrap" id="app"></div>
@@ -231,42 +252,68 @@ const SPACES = [
   { id: 11, sh: "갈대·양", nm: "갈대와 양", ds: "비면 갈대, 있으면 양 +1", animal: ["reed", "sheep"] },
   { id: 12, sh: "돼지·양", nm: "돼지와 양", ds: "비면 돼지, 있으면 양 +1", animal: ["pig", "sheep"] },
   { id: 13, sh: "외양간", nm: "외양간으로 개조", ds: "나무 5 또는 돌 5" },
-  { id: 14, sh: "특수 건물", nm: "특수 건물 짓기", ds: "2자리 · 봇은 17–20 번호로 건물 수집", wide: true },
+  { id: 14, sh: "특수 건물", nm: "특수 건물 짓기", ds: "2자리 · 봇은 17–20번 건물 수집", wide: true },
   { id: 15, sh: "소·돼지", nm: "소와 돼지", ds: "비면 소, 있으면 돼지 +1", animal: ["cow", "pig"] },
   { id: 16, sh: "말·양", nm: "말과 양", ds: "비면 말, 있으면 양 +1", animal: ["horse", "sheep"] },
 ];
 const SP = Object.fromEntries(SPACES.map(s => [s.id, s]));
+
+// 룰북 9–12쪽 특수 건물. [이름, 봇 기준 점수, 플레이어 점수 선택지(변동 점수일 때), 비고]
+const SPECIAL = [
+  ["가축 상점", 3], ["간이 우리", 0], ["갈대집", 0], ["거래소", 1], ["건설 회사", 2],
+  ["건초 선반", 0], ["건초더미", 1], ["구석진 집", 4], ["가구 제작소", 0], ["가내 수공업소", 1],
+  ["개집", 0], ["급식장", 0], ["농업용 우물", 0], ["농장용품점", 0],
+  ["대농장", 0, [0, 3], "특수 건물 5채 이상이면 3점"], ["돌 조각소", 0, [0, 2, 4, 6, 8, 10, 12, 14], "올려둔 돌 1개당 2점"],
+  ["돼지 축사", 0, [0, 4], "돼지 13마리 이상이면 4점"], ["마구간 딸린 집", 3], ["마을회관", 2],
+  ["말 사육장", 3], ["먹이용 근대밭", 0], ["멧돼지 우리", 0], ["목공소", 1], ["목수 공방", 1],
+  ["목장", 2], ["목재 상점", 1], ["바닥재 전문점", 0], ["분만실", 0], ["사료 저장고", 0, [0, 3], "여물통 5개 이상이면 3점"],
+  ["사무실", 6, [6, 4, 2, 0, -2], "윗줄 건물 1채당 -2점"], ["소 농장", 1], ["소 시장", 2],
+  ["소 축사", 0, [0, 4], "소 11마리 이상이면 4점"], ["여관", 4], ["오리 연못", 1], ["온실", 1],
+  ["우유 농장", 3], ["울타리 설치업소", 0], ["유기농 농장", 4], ["인테리어 용품점", 1], ["임시 사육장", 1],
+  ["자재 할인점", 7], ["작업장", 2], ["작은 확장터", 0, [0, 2, 4, 6, 8], "인접 건물 1채당 2점"],
+  ["저택", 7, [7, 5, 3, 1, -1], "아랫줄 건물 1채당 -2점"], ["전원주택", 1], ["제재소", 4],
+  ["증축된 오두막", 4], ["집사의 사무실", -3], ["큰 확장터", 0, [0, 2, 4, 6, 8], "인접 건물 1채당 2점"],
+  ["통나무 집", 0, [0, 4], "개인 창고 나무 4개 이상이면 4점"], ["품종 연구소", 0], ["하인의 집", 0], ["헛간", 0],
+].map(([name, vp, opts, note]) => ({ name, vp, opts, note }));
+// 기본 특수 건물 (항상 사용, 봇은 가져가지 않음)
+const BASIC = [
+  { name: "나무골조 집", vp: 5 }, { name: "개방형 외양간", vp: 2 },
+  { name: "가축 보호소", vp: 0 }, { name: "저장고", vp: 0, note: "건축 자원 1개당 0.5점" },
+];
+// 가축 추가 점수 표 (룰북 8쪽): [1점 시작, 2점 시작, 3점 시작] 마리 수
+const BONUS = { sheep: [8, 11, 13], pig: [7, 9, 11], cow: [6, 8, 10], horse: [5, 7, 9] };
+const ANIMALS = [["sheep", "양"], ["pig", "돼지"], ["cow", "소"], ["horse", "말"]];
+const STALL_VP = 1, STABLE_VP = 4;
+
 const MODES = {
   easy:  { nm: "쉬움", ds: "플레이어가 항상 선. 봇은 점수 없음 (내 점수 갱신하기)" },
   normal:{ nm: "보통", ds: "라운드마다 선 플레이어 교대. 라운드 끝에 농장 확장 칸에 경계선 2개 이상이면 봇이 가져가고 확장판도 1개 가져감. 봇 점수 없음" },
   hard:  { nm: "어려움", ds: "플레이어가 항상 후. 경계선 1개 이상 남으면 봇이 가져감. 봇은 건물 점수 + 경계선·확장판당 2점" },
   farm:  { nm: "팜마겟돈", ds: "어려움 규칙 + 마지막 라운드 시작 때 봇이 경계선 1개와 확장판 1개를 가져감. 축사는 외양간 점수, 경계선·확장판당 3점" },
 };
-const DEFAULT_BLD = [
-  { name: "특수 건물 A", vp: 2 }, { name: "특수 건물 B", vp: 2 },
-  { name: "특수 건물 C", vp: 3 }, { name: "특수 건물 D", vp: 3 },
-];
 
 function add(goods, k, n) { goods[k] = (goods[k] || 0) + n; }
-function rnd(n) { return 1 + Math.floor(Math.random() * n); }
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function goodsText(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map(([k, n]) => `${G[k]} ${n}`).join(", "); }
+function vpText(b) { return b.opts ? `${b.opts[0] < b.opts[b.opts.length - 1] ? b.opts[0] + "~" + b.opts[b.opts.length - 1] : b.opts[b.opts.length - 1] + "~" + b.opts[0]}점` : `${b.vp}점`; }
+function randomPicks() { return shuffle(SPECIAL.map((_, i) => i)).slice(0, 4); }
+function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
+function opt(v, cur, label) { return `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${label ?? v}</option>`; }
 
 // ---------- 상태 ----------
-const KEY = "acbs-automa-v1";
+const KEY = "acbs-automa-v2";
 let S = null;          // 게임 상태
 let history = [];      // 되돌리기 스냅샷
-let modal = null;      // { type, ... }
+let modal = null;      // 화면 전용 선택 창
 let botTimer = null;
+let load0 = null;
 
 function freshSetup(prev) {
+  const st = prev?.settings;
   return {
     phase: "setup",
-    settings: prev?.settings || {
-      mode: "normal", picker: "d20", firstNormal: "player",
-      buildings: DEFAULT_BLD.map(b => ({ ...b })), stallVP: 1, stableVP: 4, extensions: 4, stalls: 4,
-    },
+    settings: st && st.picks ? st : { mode: "normal", firstNormal: "player", picks: randomPicks(), extensions: 4, stalls: 4 },
   };
 }
 
@@ -285,9 +332,11 @@ function startGame() {
     phase: "play", settings: st, round: 0,
     goods: {}, roundFences: 8,
     extLeft: +st.extensions, stallsLeft: +st.stalls,
-    buildings: st.buildings.map((b, i) => ({ no: 17 + i, name: b.name || `특수 건물 ${i + 1}`, vp: +b.vp || 0, owner: null })),
+    buildings: st.picks.map((k, i) => ({ no: 17 + i, key: k, name: SPECIAL[k].name, vp: SPECIAL[k].vp, owner: null })),
+    basic: BASIC.map(b => ({ name: b.name, owner: null })),
     bot: { fences: 9, ext: 0, stalls: 0 },
-    placed: [], first: "player", turnIdx: 0, deck: [], lastBot: null, log: [], roundDone: false,
+    me: { ext: 0, stalls: 0 },
+    placed: [], first: "player", lastBot: null, log: [], notice: null,
   };
   history = [];
   nextRound();
@@ -298,14 +347,12 @@ function firstFor(round) {
   if (m === "easy") return "player";
   if (m === "hard" || m === "farm") return "bot";
   const f = S.settings.firstNormal;
-  const other = f === "player" ? "bot" : "player";
-  return round % 2 === 1 ? f : other;
+  return round % 2 === 1 ? f : (f === "player" ? "bot" : "player");
 }
 
 function nextRound() {
-  S.round += 1; S.placed = []; S.turnIdx = 0; S.lastBot = null; S.roundDone = false;
+  S.round += 1; S.placed = []; S.lastBot = null;
   S.first = firstFor(S.round);
-  // 보충 단계
   for (const sp of SPACES) {
     const g = S.goods[sp.id] = S.goods[sp.id] || {};
     if (sp.acc) sp.acc(g);
@@ -315,14 +362,14 @@ function nextRound() {
       add(g, empty ? sp.animal[0] : sp.animal[1], 1);
     }
   }
-  if (S.settings.picker === "deck") S.deck = shuffle(Array.from({ length: 20 }, (_, i) => i + 1));
   log(`<b>${S.round}라운드 시작</b> · 선: ${S.first === "player" ? "플레이어" : "봇"}`);
   if (S.settings.mode === "farm" && S.round === 8) {
     const g = S.goods[8];
-    let txt = "";
-    if ((g.fence || 0) > 0) { g.fence -= 1; S.bot.fences += 1; txt += "경계선 1개"; }
-    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; txt += (txt ? ", " : "") + "확장판 1개"; }
-    log(`팜마겟돈: 봇이 일꾼 없이 ${txt || "가져갈 것이 없음"}`);
+    const lines = [];
+    if ((g.fence || 0) > 0) { g.fence -= 1; S.bot.fences += 1; lines.push("농장 확장 칸의 경계선 1개"); }
+    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; lines.push("농장 확장판 1개"); }
+    log(`팜마겟돈: 봇이 일꾼 없이 ${lines.join(", ") || "가져갈 것이 없음"}`);
+    if (lines.length) S.notice = { title: "팜마겟돈 · 마지막 라운드", lead: "봇이 일꾼을 놓지 않고 가져갑니다.", lines, foot: "게임판에서 상자로 치운 뒤 확인을 누르세요.", next: false };
   }
 }
 
@@ -333,28 +380,25 @@ function whoseTurn() {
 }
 function occupied(id) { return S.placed.filter(p => p.space === id); }
 function slotFree() { return occupied(14).length < 2; }
-function botValid(n) {
-  if (n >= 17) { const b = S.buildings[n - 17]; return !b.owner && slotFree(); }
-  if (n === 14) return slotFree();
-  return occupied(n).length === 0;
+
+// 봇: 지금 놓을 수 있는 빈 칸 중 무작위 하나. 특수 건물 자리가 비어 있으면 남은 17–20번 건물 각각이 후보.
+function botCandidates() {
+  const c = [];
+  for (const sp of SPACES) if (sp.id !== 14 && occupied(sp.id).length === 0) c.push(sp.id);
+  if (slotFree()) {
+    const avail = S.buildings.filter(b => !b.owner).map(b => b.no);
+    if (avail.length) c.push(...avail); else c.push(14);
+  }
+  return c;
 }
 
 function botTurn() {
-  const rolls = [];
-  let n;
-  if (S.settings.picker === "d20") {
-    let guard = 0;
-    do { n = rnd(20); rolls.push(n); guard++; } while (!botValid(n) && guard < 500);
-  } else {
-    if (!S.deck.length) S.deck = shuffle(Array.from({ length: 20 }, (_, i) => i + 1));
-    const card = S.deck.shift(); rolls.push(card); n = card;
-    let guard = 0;
-    while (!botValid(n) && guard < 25) { n = n % 20 + 1; guard++; }
-  }
+  const cand = botCandidates();
+  const n = cand[Math.floor(Math.random() * cand.length)];
   const space = n >= 17 ? 14 : n;
   const g = S.goods[space] || {};
   const taken = goodsText(g);
-  let gain = [];
+  const gain = [];
   if (space === 8) {
     if (g.fence) { S.bot.fences += g.fence; gain.push(`경계선 ${g.fence}`); }
     if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; gain.push("확장판 1"); }
@@ -362,12 +406,11 @@ function botTurn() {
     S.stallsLeft -= 1; S.bot.stalls += 1; gain.push("축사 1");
   }
   let bName = null;
-  if (n >= 17) { const b = S.buildings[n - 17]; b.owner = "bot"; bName = b.name; gain.push(`${b.name}`); }
+  if (n >= 17) { const b = S.buildings[n - 17]; b.owner = "bot"; bName = b.name; gain.push(b.name); }
   S.goods[space] = {};
   S.placed.push({ space, who: "bot", n, bld: bName });
-  S.lastBot = { n, space, rolls, picker: S.settings.picker, cleared: space === 8 ? "" : taken, gain: gain.join(", ") };
-  const rollTxt = S.settings.picker === "d20" ? `D20: ${rolls.join(" → ")}` : `카드 ${rolls[0]}${rolls[0] !== n ? ` → ${n}` : ""}`;
-  log(`봇 [${rollTxt}] <b>${n}. ${n >= 17 ? bName : SP[space].nm}</b>` +
+  S.lastBot = { n, space, pool: cand.length, cleared: space === 8 ? "" : taken, gain: gain.join(", ") };
+  log(`봇 <b>${n}. ${n >= 17 ? bName : SP[space].nm}</b> <span class="num">(${cand.length}곳 중)</span>` +
       (taken && space !== 8 ? ` · 공동 창고로: ${taken}` : "") + (gain.length ? ` · 수집: ${gain.join(", ")}` : ""));
 }
 
@@ -376,24 +419,22 @@ function playerPlace(id, opt) {
   const g = S.goods[id] || {};
   const taken = goodsText(g);
   let extra = "";
-  if (id === 8 && opt?.ext && S.extLeft > 0) { S.extLeft -= 1; extra = " · 확장판 1개 연결"; }
-  if (id === 9 && opt?.stall && S.stallsLeft > 0) { S.stallsLeft -= 1; extra = " · 축사 1개 가져감"; }
+  if (id === 8 && opt?.ext && S.extLeft > 0) { S.extLeft -= 1; S.me.ext += 1; extra = " · 확장판 1개 연결"; }
+  if (id === 9 && opt?.stall && S.stallsLeft > 0) { S.stallsLeft -= 1; S.me.stalls += 1; extra = " · 축사 1개 지음"; }
   let bName = null;
-  if (id === 14 && opt?.bld != null) { const b = S.buildings[opt.bld]; b.owner = "player"; bName = b.name; extra = ` · ${b.name} 건설`; }
+  if (id === 14 && opt?.bld != null) { const b = S.buildings[opt.bld]; b.owner = "player"; bName = b.name; }
+  if (id === 14 && opt?.basic != null) { const b = S.basic[opt.basic]; b.owner = "player"; bName = b.name; }
+  if (bName) extra = ` · ${bName} 건설`;
   S.goods[id] = {};
   S.placed.push({ space: id, who: "player", bld: bName });
   log(`플레이어 <b>${id}. ${SP[id].nm}</b>${taken ? ` · 가져감: ${taken}` : ""}${extra}`);
   modal = null;
-  afterMove();
+  save(); render(); scheduleBot();
 }
 
-function afterMove() {
-  save(); render();
-  scheduleBot();
-}
 function scheduleBot() {
   clearTimeout(botTimer);
-  if (S.phase === "play" && whoseTurn() === "bot") {
+  if (S.phase === "play" && !S.notice && whoseTurn() === "bot") {
     botTimer = setTimeout(() => { botTurn(); save(); render(); scheduleBot(); }, 650);
   }
 }
@@ -403,16 +444,28 @@ function endRound() {
   const m = S.settings.mode;
   const need = m === "normal" ? 2 : (m === "hard" || m === "farm") ? 1 : Infinity;
   const g = S.goods[8] || {};
+  log(`${S.round}라운드 종료 · 일꾼 회수 후 각자 번식`);
   if ((g.fence || 0) >= need) {
     const n = g.fence; S.bot.fences += n; g.fence = 0;
-    let t = `경계선 ${n}`;
-    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; t += ", 확장판 1"; }
-    log(`라운드 종료: 농장 확장 칸에서 봇이 ${t} 가져감`);
+    const lines = [`농장 확장 칸의 경계선 ${n}개`];
+    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; lines.push("농장 확장판 1개"); }
+    else lines.push("남은 확장판이 없어 경계선만 가져갑니다");
+    log(`라운드 종료: 봇이 ${lines.join(", ")} 가져감`);
+    S.notice = { title: "봇이 경계선을 가져갑니다", lead: `${MODES[m].nm} 규칙: 라운드가 끝날 때 농장 확장 칸에 경계선이 ${need}개 이상 남았습니다.`,
+      lines, foot: "게임판에서 상자로 치운 뒤 다음 라운드를 시작하세요.", next: true };
+    save(); render(); return;
   }
-  log(`${S.round}라운드 종료 · 일꾼 회수 후 각자 번식`);
-  if (S.round >= 8) { S.phase = "end"; S.playerScore = S.playerScore ?? ""; }
+  proceedRound();
+}
+function proceedRound() {
+  if (S.round >= 8) { S.phase = "end"; S.ps = initScore(); }
   else nextRound();
   save(); render(); scheduleBot();
+}
+function confirmNotice() {
+  const nx = S.notice?.next;
+  S.notice = null;
+  if (nx) proceedRound(); else { save(); render(); scheduleBot(); }
 }
 
 function undo() {
@@ -423,17 +476,42 @@ function undo() {
   save(); render(); scheduleBot();
 }
 
+// ---------- 점수 ----------
 function botScore() {
   const m = S.settings.mode;
   if (m === "easy" || m === "normal") return null;
   const per = m === "farm" ? 3 : 2;
-  const stallEach = m === "farm" ? +S.settings.stableVP : +S.settings.stallVP;
+  const stallEach = m === "farm" ? STABLE_VP : STALL_VP;
   const bld = S.buildings.filter(b => b.owner === "bot").reduce((a, b) => a + b.vp, 0);
-  const parts = {
-    bld, stalls: S.bot.stalls * stallEach, fences: S.bot.fences * per, ext: S.bot.ext * per, per, stallEach,
+  const p = { bld, stalls: S.bot.stalls * stallEach, fences: S.bot.fences * per, ext: S.bot.ext * per, per, stallEach };
+  p.total = p.bld + p.stalls + p.fences + p.ext;
+  return p;
+}
+function animalBonus(type, n) {
+  if (n <= 3) return -3;
+  const [a, b, c] = BONUS[type];
+  if (n < a) return 0; if (n < b) return 1; if (n < c) return 2;
+  return 3 + (n - c);
+}
+function initScore() {
+  return {
+    sheep: 0, pig: 0, cow: 0, horse: 0, extFull: 0,
+    stalls: S.me.stalls, stables: 0, res: 0,
+    basic: S.basic.map(b => b.owner === "player" ? 1 : 0),
+    bvp: Object.fromEntries(S.buildings.map((b, i) => [i, SPECIAL[b.key].opts ? SPECIAL[b.key].opts[0] : b.vp])),
+    extra: 0,
   };
-  parts.total = parts.bld + parts.stalls + parts.fences + parts.ext;
-  return parts;
+}
+function playerScore() {
+  const ps = S.ps;
+  const r = { animals: 0, bonus: 0, ext: ps.extFull * 4, bld: 0, rows: {} };
+  for (const [k] of ANIMALS) { r.animals += +ps[k]; r.rows[k] = animalBonus(k, +ps[k]); r.bonus += r.rows[k]; }
+  r.bld += ps.stalls * STALL_VP + ps.stables * STABLE_VP;
+  BASIC.forEach((b, i) => { if (ps.basic[i]) r.bld += b.name === "저장고" ? ps.res * 0.5 : b.vp; });
+  S.buildings.forEach((b, i) => { if (b.owner === "player") r.bld += +ps.bvp[i]; });
+  r.extra = +ps.extra;
+  r.total = r.animals + r.bonus + r.ext + r.bld + r.extra;
+  return r;
 }
 
 // ---------- 렌더 ----------
@@ -445,6 +523,10 @@ function header(extra) {
     <div class="top-actions">${extra || ""}</div></header>`;
 }
 
+function buildingOptions(cur, others) {
+  return SPECIAL.map((b, i) => `<option value="${i}" ${i === cur ? "selected" : ""} ${others.includes(i) ? "disabled" : ""}>${esc(b.name)} · ${vpText(b)}</option>`).join("");
+}
+
 function renderSetup() {
   const st = S.settings;
   app.innerHTML = header(load0 ? `<button id="resume">저장된 게임 이어하기</button>` : "") + `
@@ -453,49 +535,41 @@ function renderSetup() {
       <div class="modes">${Object.entries(MODES).map(([k, m]) => `
         <label class="mode"><input type="radio" name="mode" id="mode-${k}" value="${k}" ${st.mode === k ? "checked" : ""}>
         <b>${m.nm}</b><span>${m.ds}</span></label>`).join("")}</div>
-      <div class="field" ${st.mode === "normal" ? "" : "hidden"} id="firstWrap"><span class="label">보통 · 1라운드 선 플레이어</span>
-        <select id="firstNormal"><option value="player" ${st.firstNormal === "player" ? "selected" : ""}>플레이어</option>
-        <option value="bot" ${st.firstNormal === "bot" ? "selected" : ""}>봇</option></select></div>
-    </section>
-    <section class="panel"><h2>봇 행동 결정 방식</h2>
-      <label class="mode"><input type="radio" name="picker" id="pk-d20" value="d20" ${st.picker === "d20" ? "checked" : ""}>
-        <b>D20 주사위</b><span>빈 칸이 나올 때까지 다시 굴림</span></label>
-      <label class="mode"><input type="radio" name="picker" id="pk-deck" value="deck" ${st.picker === "deck" ? "checked" : ""}>
-        <b>20장 봇 덱</b><span>라운드마다 섞어서 뽑음. 이미 찬 칸이면 오름차순으로 다음 빈 칸</span></label>
-      <h3>공급 수량</h3>
-      <div class="row">
-        <label class="field"><span class="label">농장 확장판</span><input id="extensions" type="number" min="0" max="9" value="${st.extensions}"></label>
-        <label class="field"><span class="label">축사/외양간 타일</span><input id="stalls" type="number" min="0" max="9" value="${st.stalls}"></label>
-      </div>
-      <div class="row">
-        <label class="field"><span class="label">축사 점수</span><input id="stallVP" type="number" min="0" max="9" value="${st.stallVP}"></label>
-        <label class="field"><span class="label">외양간 점수</span><input id="stableVP" type="number" min="0" max="9" value="${st.stableVP}"></label>
-      </div>
-      <p class="sub" style="font-size:13px">타일에 인쇄된 점수와 다르면 바꿔 주세요. 봇 점수 계산에만 쓰입니다.</p>
+      <label class="field" ${st.mode === "normal" ? "" : "hidden"} id="firstWrap"><span class="label">보통 · 1라운드 선 플레이어</span>
+        <select id="firstNormal">${opt("player", st.firstNormal, "플레이어")}${opt("bot", st.firstNormal, "봇")}</select></label>
     </section>
     <section class="panel"><h2>특수 건물 4개 (17–20번)</h2>
-      <p class="sub" style="font-size:13px">이번 게임에 깔아둔 특수 건물의 이름과 점수를 입력하세요.</p>
-      ${st.buildings.map((b, i) => `<div class="bld-row"><span class="num">${17 + i}</span>
-        <input id="bn-${i}" value="${esc(b.name)}" aria-label="${17 + i}번 건물 이름">
-        <input id="bv-${i}" type="number" min="0" max="20" value="${b.vp}" aria-label="${17 + i}번 건물 점수"></div>`).join("")}
+      <p class="sub" style="font-size:13px;margin:0">이번 게임에 깔아둔 특수 건물을 고르세요. 점수는 룰북 기준으로 자동 입력됩니다.</p>
+      ${st.picks.map((k, i) => {
+        const b = SPECIAL[k];
+        return `<div class="bld-row"><span class="num">${17 + i}</span>
+        <select id="pick-${i}" aria-label="${17 + i}번 특수 건물">${buildingOptions(k, st.picks.filter((_, j) => j !== i))}</select>
+        <span class="vp num">${b.vp}점</span></div>${b.note ? `<div class="bld-note">${esc(b.note)} · 봇은 ${b.vp}점으로 계산</div>` : ""}`;
+      }).join("")}
+      <button id="randomPicks">무작위 4개 고르기</button>
+      <h3>공급 수량</h3>
+      <div class="row">
+        <label class="field"><span class="label">농장 확장판</span><select id="extensions">${range(0, 6).map(v => opt(v, st.extensions)).join("")}</select></label>
+        <label class="field"><span class="label">축사/외양간 타일</span><select id="stalls">${range(0, 6).map(v => opt(v, st.stalls)).join("")}</select></label>
+      </div>
       <button class="primary" id="start">게임 시작</button>
-      <p class="sub" style="font-size:13px">준비: 봇 몫으로 경계선 9개를 상자에 넣고, 남은 경계선 8개는 라운드 표시용으로 둡니다.</p>
+      <p class="sub" style="font-size:13px;margin:0">준비: 봇 몫으로 경계선 9개를 상자에 넣고, 남은 경계선 8개는 라운드 표시용으로 둡니다.</p>
     </section>
   </div>` + rulesHTML() + `<div class="dock"><div class="dock-in"><div class="dock-msg"><div class="t">
-    <b id="dockSum">${MODES[st.mode].nm} · ${st.picker === "d20" ? "D20" : "봇 덱"}</b><div>특수 건물 이름은 위에서 입력</div></div></div>
+    <b>${MODES[st.mode].nm}</b><div>${st.picks.map(k => esc(SPECIAL[k].name)).join(" · ")}</div></div></div>
     <div class="dock-btns"><button class="primary" data-act="start">게임 시작</button></div></div></div>`;
 
   const sync = () => {
     st.mode = document.querySelector('input[name=mode]:checked').value;
-    st.picker = document.querySelector('input[name=picker]:checked').value;
     st.firstNormal = document.getElementById("firstNormal").value;
-    for (const k of ["extensions", "stalls", "stallVP", "stableVP"]) st[k] = Math.max(0, +document.getElementById(k).value || 0);
-    st.buildings.forEach((b, i) => { b.name = document.getElementById("bn-" + i).value.trim() || `특수 건물 ${i + 1}`; b.vp = +document.getElementById("bv-" + i).value || 0; });
-    document.getElementById("firstWrap").hidden = st.mode !== "normal";
-    document.getElementById("dockSum").textContent = `${MODES[st.mode].nm} · ${st.picker === "d20" ? "D20" : "봇 덱"}`;
+    st.extensions = +document.getElementById("extensions").value;
+    st.stalls = +document.getElementById("stalls").value;
+    st.picks = st.picks.map((_, i) => +document.getElementById("pick-" + i).value);
+    save(); renderSetup();
   };
   app.querySelectorAll("input,select").forEach(el => el.addEventListener("change", sync));
-  const go = () => { sync(); startGame(); save(); render(); scheduleBot(); };
+  document.getElementById("randomPicks").onclick = () => { st.picks = randomPicks(); save(); renderSetup(); };
+  const go = () => { startGame(); save(); render(); scheduleBot(); };
   document.getElementById("start").onclick = go;
   app.querySelector('[data-act="start"]').onclick = go;
   const r = document.getElementById("resume");
@@ -510,15 +584,12 @@ function spaceHTML(sp, myTurn) {
   const last = S.lastBot && S.lastBot.space === sp.id && whoseTurn() !== "bot" ? " lastbot" : "";
   let body;
   if (sp.wide) {
-    const slots = [0, 1].map(i => {
+    body = `<div class="slots">${[0, 1].map(i => {
       const p = occ[i];
       if (!p) return `<div class="slot">빈 자리</div>`;
       return `<div class="slot full"><span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>${esc(p.bld || "건물 없음")}</div>`;
-    }).join("");
-    body = `<div class="slots">${slots}</div>`;
-  } else {
-    body = `<div class="goods">${chips}</div>`;
-  }
+    }).join("")}</div>`;
+  } else body = `<div class="goods">${chips}</div>`;
   const meeples = sp.wide ? "" : `<div class="occ">${occ.map(p => `<span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>`).join("")}</div>`;
   const label = `${sp.id}. ${sp.nm}${chips ? " · " + goodsText(g) : ""}${occ.length ? " · 사용 중" : ""}`;
   return `<div class="space${sp.wide ? " wide" : ""}${can ? " click" : ""}${occ.length && !sp.wide ? " taken" : ""}${last}"
@@ -528,13 +599,13 @@ function spaceHTML(sp, myTurn) {
 }
 
 function playerCan(id) {
-  if (id === 14) return slotFree() && S.buildings.some(b => !b.owner);
+  if (id === 14) return slotFree();
   return occupied(id).length === 0;
 }
 
 function renderPlay() {
   const turn = whoseTurn();
-  const myTurn = turn === "player";
+  const myTurn = turn === "player" && !S.notice;
   const pLeft = 3 - S.placed.filter(p => p.who === "player").length;
   const bLeft = 3 - S.placed.filter(p => p.who === "bot").length;
   const pips = Array.from({ length: 8 }, (_, i) => `<span class="pip ${i + 1 < S.round ? "done" : i + 1 === S.round ? "now" : ""}"></span>`).join("");
@@ -546,7 +617,7 @@ function renderPlay() {
   <div class="status">
     <span class="round">${S.round}라운드</span><span class="pips" aria-label="8라운드 중 ${S.round}라운드">${pips}</span>
     <span class="workers"><span><span class="dot p"></span>나 ${pLeft}</span><span><span class="dot b"></span>봇 ${bLeft}</span></span>
-    <span class="label" style="color:#f4f1dcb0">${MODES[S.settings.mode].nm} · ${S.settings.picker === "d20" ? "D20" : "봇 덱"}</span>
+    <span class="label" style="color:#f4f1dcb0">${MODES[S.settings.mode].nm}</span>
     <span class="turn">${turnTxt}</span>
   </div>
   <div class="play">
@@ -555,15 +626,15 @@ function renderPlay() {
         <p class="legend">노란 칸을 눌러 일꾼을 놓습니다. 칸에 쌓인 물건은 직접 가져가고, 봇이 고른 칸의 물건은 공동 창고로 돌려놓으세요.</p></div>
       <div class="buildings">${S.buildings.map(b => `<div class="bld ${b.owner || ""}">
         <span class="label num">${b.no}</span><span class="nm">${esc(b.name)}</span>
-        <span class="own">${b.vp}점 · ${b.owner === "bot" ? "봇이 수집" : b.owner === "player" ? "내가 건설" : "남아 있음"}</span></div>`).join("")}</div>
+        <span class="own">${vpText(SPECIAL[b.key])} · ${b.owner === "bot" ? "봇이 수집" : b.owner === "player" ? "내가 건설" : "남아 있음"}</span></div>`).join("")}</div>
     </div>
     <aside class="side">
       ${turn === null ? `<div class="callout endcall"><h3>집에 돌아오기 · 번식</h3>
-        <p class="sub" style="margin:0">일꾼 6개를 모두 놓았습니다. 내 농장의 가축을 번식시킨 뒤 라운드를 끝내세요.${S.settings.mode !== "easy" ? " 농장 확장 칸에 남은 경계선은 봇 규칙에 따라 처리됩니다." : ""}</p>
+        <p class="sub" style="margin:0">일꾼 6개를 모두 놓았습니다. 내 농장의 가축을 번식시킨 뒤 라운드를 끝내세요.</p>
         <button class="primary" data-act="endround">${S.round >= 8 ? "게임 종료 · 점수 계산" : `${S.round}라운드 끝내기`}</button></div>` : ""}
       ${lb ? `<div class="callout botmove"><span class="label">봇의 마지막 행동</span>
         <div class="botline"><span class="die">${lb.n}</span><div><b>${lb.n >= 17 ? esc(S.buildings[lb.n - 17].name) + " (특수 건물 짓기)" : SP[lb.space].nm}</b>
-        <div class="sub" style="font-size:13px;margin:0">${lb.picker === "d20" ? `굴린 값: ${lb.rolls.join(" → ")}` : `뽑은 카드: ${lb.rolls[0]}${lb.rolls[0] !== lb.n ? ` → 다음 빈 칸 ${lb.n}` : ""}`}</div></div></div>
+        <div class="sub" style="font-size:13px;margin:0">빈 칸 ${lb.pool}곳 중 무작위</div></div></div>
         ${lb.cleared ? `<div>공동 창고로 되돌리기: <b>${lb.cleared}</b></div>` : ""}
         ${lb.gain ? `<div>봇이 수집: <b>${esc(lb.gain)}</b></div>` : ""}</div>` : ""}
       <div class="callout"><h3>봇 현황</h3>
@@ -594,15 +665,15 @@ function renderPlay() {
 function dockHTML(turn, lb) {
   let msg;
   const pill = turn === "player" ? `<span class="pill">내 차례</span>` : turn === "bot" ? `<span class="pill bot">봇 차례</span>` : "";
-  if (turn === "bot") msg = `<span class="die">…</span><div class="t">${pill}<div>봇이 칸을 고르는 중</div></div>`;
+  if (turn === null) msg = `<div class="t"><b>번식 단계</b><div>가축을 번식시킨 뒤 진행</div></div>`;
+  else if (turn === "bot") msg = `<span class="die">…</span><div class="t">${pill}<div>봇이 칸을 고르는 중</div></div>`;
   else if (lb) msg = `<span class="die">${lb.n}</span><div class="t">${pill}
       <div><b>${lb.n >= 17 ? esc(S.buildings[lb.n - 17].name) : SP[lb.space].nm}</b></div>
-      <div>${lb.cleared ? `창고로: ${lb.cleared}` : lb.gain ? `봇 수집: ${esc(lb.gain)}` : lb.picker === "d20" ? `굴림: ${lb.rolls.join("→")}` : `카드 ${lb.rolls[0]}`}</div></div>`;
-  else msg = `<div class="t">${pill}<div>${turn === "player" ? "게임판 칸을 눌러 일꾼을 놓으세요" : "번식 후 라운드를 끝내세요"}</div></div>`;
-  if (turn === null) msg = `<div class="t"><b>번식 단계</b><div>가축을 번식시킨 뒤 진행</div></div>`;
+      <div>${lb.cleared ? `창고로: ${lb.cleared}` : lb.gain ? `봇 수집: ${esc(lb.gain)}` : `빈 칸 ${lb.pool}곳 중 무작위`}</div></div>`;
+  else msg = `<div class="t">${pill}<div>게임판 칸을 눌러 일꾼을 놓으세요</div></div>`;
   const end = turn === null ? `<button class="primary" data-act="endround">${S.round >= 8 ? "점수 계산" : `${S.round}R 끝내기`}</button>` : "";
   return `<div class="dock"><div class="dock-in"><div class="dock-msg">${msg}</div>
-    <div class="dock-btns"><button data-act="undo" ${history.length ? "" : "disabled"} aria-label="되돌리기">되돌리기</button>${end}</div></div></div>`;
+    <div class="dock-btns"><button data-act="undo" ${history.length ? "" : "disabled"}>되돌리기</button>${end}</div></div></div>`;
 }
 
 function onSpace(id) {
@@ -613,11 +684,23 @@ function onSpace(id) {
 }
 
 function modalHTML() {
+  if (S.notice) {
+    const n = S.notice;
+    const btn = n.next ? (S.round >= 8 ? "확인 · 점수 계산" : `확인 · ${S.round + 1}라운드 시작`) : "확인";
+    return `<div class="modal" id="modal"><div class="box notice" role="alertdialog" aria-modal="true" aria-labelledby="ntitle">
+      <span class="label" style="color:var(--bot)">봇 알림</span><h3 id="ntitle">${n.title}</h3>
+      <p class="sub" style="margin:0">${n.lead}</p>
+      <ul class="takes">${n.lines.map(l => `<li>${l}</li>`).join("")}</ul>
+      <p style="margin:0">${n.foot}</p>
+      <button class="primary" id="nok">${btn}</button>
+      <button id="nundo" ${history.length ? "" : "disabled"}>되돌리기</button></div></div>`;
+  }
   if (!modal) return "";
   let inner = "";
   if (modal.type === "bld") {
-    inner = `<h3>어떤 특수 건물을 짓나요?</h3><div class="choice">${S.buildings.map((b, i) => b.owner ? "" :
-      `<button data-bld="${i}">${b.no}. ${esc(b.name)} <span class="sub">(${b.vp}점)</span></button>`).join("")}</div>`;
+    const sp = S.buildings.map((b, i) => b.owner ? "" : `<button data-bld="${i}">${b.no}. ${esc(b.name)} <span class="sub">(${vpText(SPECIAL[b.key])})</span></button>`).join("");
+    const bs = S.basic.map((b, i) => b.owner ? "" : `<button data-basic="${i}">${esc(b.name)} <span class="sub">(기본 건물)</span></button>`).join("");
+    inner = `<h3>어떤 건물을 짓나요?</h3><div class="choice">${sp}${bs}<button data-basic="-1">목록에 없음 · 자리만 사용</button></div>`;
   } else if (modal.type === "ext") {
     const g = S.goods[8] || {};
     inner = `<h3>농장 확장</h3><p class="sub" style="margin:0">경계선 ${g.fence || 0}개를 가져갑니다. 남은 확장판: ${S.extLeft}개</p>
@@ -633,9 +716,17 @@ function modalHTML() {
 }
 function bindModal() {
   const m = document.getElementById("modal"); if (!m) return;
+  const ok = document.getElementById("nok");
+  if (ok) {
+    ok.onclick = confirmNotice;
+    document.getElementById("nundo").onclick = undo;
+    ok.focus();
+    return;
+  }
   document.getElementById("mclose").onclick = () => { modal = null; render(); };
   m.onclick = e => { if (e.target === m) { modal = null; render(); } };
   m.querySelectorAll("[data-bld]").forEach(b => b.onclick = () => playerPlace(14, { bld: +b.dataset.bld }));
+  m.querySelectorAll("[data-basic]").forEach(b => b.onclick = () => playerPlace(14, +b.dataset.basic >= 0 ? { basic: +b.dataset.basic } : {}));
   m.querySelectorAll("[data-opt]").forEach(b => b.onclick = () => {
     const o = b.dataset.opt;
     if (o === "new") { clearTimeout(botTimer); S = freshSetup(S); history = []; modal = null; save(); render(); return; }
@@ -645,41 +736,73 @@ function bindModal() {
   const first = m.querySelector(".choice button"); if (first) first.focus();
 }
 
+function scoreRow(id, label, options, cur, pts, hint) {
+  return `<label class="srow" for="${id}"><span class="sl">${label}${hint ? `<small>${hint}</small>` : ""}</span>
+    <select id="${id}">${options.map(o => Array.isArray(o) ? opt(o[0], cur, o[1]) : opt(o, cur)).join("")}</select>
+    <span class="sp num">${fmt(pts)}</span></label>`;
+}
+function fmt(n) { return (n > 0 ? "+" : "") + (Number.isInteger(n) ? n : n.toFixed(1)); }
+
 function renderEnd() {
   const sc = botScore();
-  const ps = S.playerScore;
-  const has = ps !== "" && ps != null && !isNaN(+ps);
-  let verdict = "";
-  if (has) {
-    if (sc) verdict = +ps > sc.total ? "승리!" : +ps === sc.total ? "동점" : "봇의 승리";
-    else verdict = `${+ps}점`;
-  }
+  const ps = S.ps;
+  const r = playerScore();
+  let verdict = sc ? (r.total > sc.total ? "승리!" : r.total === sc.total ? "동점" : "봇의 승리") : "";
   let best = null; try { best = +localStorage.getItem(KEY + "-best-" + S.settings.mode) || null; } catch (e) {}
+  const yesNo = [[0, "없음"], [1, "지음"]];
+  const mine = S.buildings.map((b, i) => ({ b, i })).filter(x => x.b.owner === "player");
+
   app.innerHTML = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
+  <div class="endsum">
+    <div><span class="label">내 점수</span><div class="big num">${fmt(r.total).replace("+", "")}</div></div>
+    ${sc ? `<div><span class="label">봇 점수</span><div class="big num">${sc.total}</div></div><div class="verdict">${verdict}</div>`
+         : `<div><span class="label">이 난이도 최고 점수</span><div class="big num">${best ?? "-"}</div></div>`}
+  </div>
   <div class="endgrid">
-    <section class="panel"><h2>봇 최종 점수 · ${MODES[S.settings.mode].nm}</h2>
-      ${sc ? `<div class="stats">
-        <span>특수 건물 (${S.buildings.filter(b => b.owner === "bot").map(b => esc(b.name)).join(", ") || "없음"})</span><span class="v">${sc.bld}</span>
-        <span>축사 ${S.bot.stalls}개 × ${sc.stallEach}</span><span class="v">${sc.stalls}</span>
-        <span>경계선 ${S.bot.fences}개 × ${sc.per}</span><span class="v">${sc.fences}</span>
-        <span>확장판 ${S.bot.ext}개 × ${sc.per}</span><span class="v">${sc.ext}</span>
-        <span class="total">합계</span><span class="v total">${sc.total}</span></div>`
-      : `<p class="sub">이 난이도에서 봇은 점수를 얻지 않습니다. 내 최고 점수를 넘어 보세요.</p>
-         <div class="stats"><span>봇이 가져간 경계선</span><span class="v">${S.bot.fences}</span><span>봇이 가져간 확장판</span><span class="v">${S.bot.ext}</span></div>`}
+    <section class="panel"><h2>내 점수 계산</h2>
+      <p class="sub" style="margin:0;font-size:13px">농장을 보고 고르면 점수가 바로 계산됩니다.</p>
+      <h3>가축</h3>
+      ${ANIMALS.map(([k, nm]) => scoreRow("ps-" + k, `${nm}`, range(0, 40), ps[k], +ps[k] + r.rows[k], `기본 ${ps[k]} · 추가 ${fmt(r.rows[k])}`)).join("")}
+      <h3>농장 확장</h3>
+      ${scoreRow("ps-extFull", "농장 칸 3칸을 모두 쓴 확장판", range(0, 6), ps.extFull, r.ext, `가져온 확장판 ${S.me.ext}개 · 1개당 4점`)}
+      <h3>건물</h3>
+      ${scoreRow("ps-stalls", "축사", range(0, 6), ps.stalls, ps.stalls * STALL_VP, "1개당 1점")}
+      ${scoreRow("ps-stables", "외양간", range(0, 6), ps.stables, ps.stables * STABLE_VP, "1개당 4점")}
+      ${BASIC.map((b, i) => scoreRow("ps-basic-" + i, b.name, yesNo, ps.basic[i], ps.basic[i] ? (b.name === "저장고" ? ps.res * 0.5 : b.vp) : 0, b.note || `${b.vp}점`)).join("")}
+      ${ps.basic[3] ? scoreRow("ps-res", "저장고 · 남은 건축 자원", range(0, 60), ps.res, ps.res * 0.5, "나무+돌+갈대 합계") : ""}
+      ${mine.length ? mine.map(({ b, i }) => {
+        const d = SPECIAL[b.key];
+        return d.opts ? scoreRow("ps-bvp-" + i, b.name, d.opts.map(v => [v, `${v}점`]), ps.bvp[i], +ps.bvp[i], d.note)
+                      : `<div class="srow"><span class="sl">${esc(b.name)}<small>특수 건물</small></span><span></span><span class="sp num">${fmt(b.vp)}</span></div>`;
+      }).join("") : `<p class="sub" style="margin:0;font-size:13px">이번 게임에 지은 특수 건물(17–20번)이 없습니다.</p>`}
+      ${scoreRow("ps-extra", "기타 조정", range(-10, 20), ps.extra, r.extra, "위에서 다루지 않은 점수")}
+      <div class="srow total"><span class="sl">합계</span><span></span><span class="sp num">${fmt(r.total).replace("+", "")}</span></div>
     </section>
-    <section class="panel"><h2>내 점수</h2>
-      <label class="field"><span class="label">점수기록용지 합계 (가축 + 추가 + 확장 + 건물)</span>
-        <input id="pscore" type="number" inputmode="numeric" value="${has ? +ps : ""}" placeholder="예: 42"></label>
-      ${has ? `<div class="verdict">${verdict}</div>` : ""}
-      ${best ? `<p class="sub">이 난이도 내 최고 점수: <b class="num">${best}</b></p>` : ""}
-    </section>
-    <section class="panel"><h3>게임 기록</h3><div class="log">${S.log.map(l => `<div><span class="num">R${l.r}</span> ${l.t}</div>`).join("")}</div></section>
+    <div class="side">
+      <section class="panel"><h2>봇 최종 점수 · ${MODES[S.settings.mode].nm}</h2>
+        ${sc ? `<div class="stats">
+          <span>특수 건물 (${S.buildings.filter(b => b.owner === "bot").map(b => esc(b.name)).join(", ") || "없음"})</span><span class="v">${sc.bld}</span>
+          <span>축사 ${S.bot.stalls}개 × ${sc.stallEach}</span><span class="v">${sc.stalls}</span>
+          <span>경계선 ${S.bot.fences}개 × ${sc.per}</span><span class="v">${sc.fences}</span>
+          <span>확장판 ${S.bot.ext}개 × ${sc.per}</span><span class="v">${sc.ext}</span>
+          <span class="total">합계</span><span class="v total">${sc.total}</span></div>`
+        : `<p class="sub">이 난이도에서 봇은 점수를 얻지 않습니다. 내 최고 점수를 넘어 보세요.</p>
+           <div class="stats"><span>봇이 가져간 경계선</span><span class="v">${S.bot.fences}</span><span>봇이 가져간 확장판</span><span class="v">${S.bot.ext}</span></div>`}
+      </section>
+      <section class="panel"><h3>게임 기록</h3><div class="log">${S.log.map(l => `<div><span class="num">R${l.r}</span> ${l.t}</div>`).join("")}</div></section>
+    </div>
   </div>` + modalHTML();
-  document.getElementById("pscore").onchange = e => {
-    S.playerScore = e.target.value;
-    try { const k = KEY + "-best-" + S.settings.mode; const v = +e.target.value; if (v > (+localStorage.getItem(k) || 0)) localStorage.setItem(k, v); } catch (er) {}
-    save(); render();
-  };
+
+  app.querySelectorAll("select[id^=ps-]").forEach(el => el.onchange = () => {
+    const k = el.id.slice(3);
+    if (k.startsWith("basic-")) ps.basic[+k.slice(6)] = +el.value;
+    else if (k.startsWith("bvp-")) ps.bvp[+k.slice(4)] = +el.value;
+    else ps[k] = +el.value;
+    const t = playerScore().total;
+    try { const kk = KEY + "-best-" + S.settings.mode; if (t > (+localStorage.getItem(kk) || -99)) localStorage.setItem(kk, t); } catch (e) {}
+    save(); renderEnd();
+    const again = document.getElementById(el.id); if (again) again.focus();
+  });
   document.getElementById("undo").onclick = undo;
   document.getElementById("newgame").onclick = () => { S = freshSetup(S); history = []; save(); render(); };
   bindModal();
@@ -691,12 +814,11 @@ function rulesHTML() {
       <li value="17">17–20: 준비한 특수 건물 4개 (봇은 특수 건물 짓기 칸에 일꾼을 놓고 해당 건물을 수집)</li></ol></div>
     <div><h3>봇 규칙</h3><ul>
       <li>봇은 농장판이 없고 건물·울타리를 짓지 않습니다. 칸을 막고, 그 칸에 쌓인 자원·가축을 공동 창고로 돌려놓습니다.</li>
+      <li>봇은 지금 비어 있는 칸 중 하나를 무작위로 고릅니다. 특수 건물 짓기 자리가 비어 있으면 남은 17–20번 건물 하나하나가 후보입니다.</li>
       <li>농장 확장 칸에서는 경계선과 확장판 1개를 수집합니다 (게임에서 제거).</li>
       <li>축사 짓기 칸에서는 축사 타일 1개를 수집합니다.</li>
-      <li>14번(특수 건물 짓기)이 나오면 건물 없이 자리만 막습니다. 17–20번 건물이 이미 없거나 자리가 차면 다시 굴립니다.</li>
-      <li>D20: 빈 칸이 나올 때까지 다시 굴림. 봇 덱: 이미 찬 칸이면 번호가 큰 쪽으로 다음 빈 칸 (20 다음은 1).</li>
-      <li>각자 일꾼 3개, 차례를 번갈아 놓고 8라운드를 진행합니다.</li></ul>
-      <p class="sub" style="font-size:13px">14번 처리와 덱 섞는 시점은 원문에 명시되지 않아 이 앱에서 정한 방식입니다.</p></div>
+      <li>각자 일꾼 3개, 차례를 번갈아 놓고 8라운드를 진행합니다.</li>
+      <li>봇 점수에서 변동 점수 건물은 봇에게 농장이 없다고 보고 계산합니다 (저택 7점, 사무실 6점, 조건부 건물 0점).</li></ul></div>
   </div></details></section>`;
 }
 
@@ -707,15 +829,11 @@ function render() {
 }
 
 // ---------- 시작 ----------
-let load0 = null;
 function start(hot) {
-  if (hot && hot.S) { S = hot.S; history = hot.history || []; }
-  else {
-    if (load()) {
-      if (S.phase === "setup") { /* keep settings */ }
-      else { load0 = { S, history }; S = freshSetup(S); history = []; }
-    } else S = freshSetup(null);
-  }
+  if (hot && hot.S && hot.S.settings?.picks) { S = hot.S; history = hot.history || []; }
+  else if (load()) {
+    if (S.phase !== "setup") { load0 = { S, history }; S = freshSetup(S); history = []; }
+  } else S = freshSetup(null);
   render(); scheduleBot();
 }
 window.claude?.hot?.snapshot?.(() => ({ S, history }));
