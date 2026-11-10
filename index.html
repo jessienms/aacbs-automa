@@ -107,13 +107,12 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .board { container-type: inline-size; }
 .btxt { position: absolute; transform: translate(-50%, -50%); text-align: center; font: 700 1.95cqw/1.2 var(--font-body); color: #2e2a17; white-space: nowrap; pointer-events: none; }
 .slotlbl { position: absolute; inset: 0; display: grid; place-items: center; font: 700 1.6cqw/1 var(--font-body); color: #2e2a17; white-space: nowrap; }
-.tks { position: relative; display: flex; flex-wrap: nowrap; justify-content: center; gap: 2px; }
-.tk { min-width: 1.9em; height: 1.9em; padding: 0 .35em; border-radius: 999px; display: inline-grid; place-items: center;
-  font: 700 clamp(11px, 2.6vw, 15px)/1 var(--font-mono); border: 2px solid #fff; box-shadow: 0 1px 3px #0007; }
-.tk.wood { background: #8b5a2b; color: #fff; } .tk.stone { background: #55585e; color: #fff; }
-.tk.reed { background: #efe6c3; color: #3b3518; } .tk.fence { background: #e7c22c; color: #3b3518; }
-.tk.sheep { background: #fff; color: #222; border-color: #222; } .tk.pig { background: #1e1e1e; color: #fff; }
-.tk.cow { background: #7a4a24; color: #fff; } .tk.horse { background: #c9935a; color: #2a1a08; }
+.tks { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+/* 자원: 룰북 구성물 사진 아이콘 × 개수 */
+.tk { display: inline-flex; align-items: center; gap: .1em; height: 1.75em; padding: 0 .4em 0 .2em; border-radius: 999px; white-space: nowrap;
+  background: #fffdf3f0; color: #2e2a17; font: 700 clamp(11px, 2.5cqw, 16px)/1 var(--font-body); box-shadow: 0 1px 3px #0006; }
+.tk img { height: 1.45em; width: auto; max-width: 1.9em; object-fit: contain; filter: drop-shadow(0 1px 1px #0005); }
+.tk.fence img, .tk.sheep img, .tk.pig img, .tk.cow img, .tk.horse img { max-width: 2.1em; }
 .meeple { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: clamp(22px, 6vw, 32px); aspect-ratio: 1; border-radius: 50%;
   display: grid; place-items: center; font: 700 clamp(10px, 2.6vw, 13px)/1 var(--font-body); color: #fff; border: 2px solid #fff; box-shadow: 0 1px 4px #0008; }
 .meeple.p { background: var(--player); } .meeple.b { background: var(--bot); }
@@ -150,7 +149,7 @@ html:has(.modal), html:has(.modal) body { overflow: hidden; }
 .box.notice { border-top: 5px solid var(--bot); }
 .gain { display: flex; flex-wrap: wrap; gap: 8px; }
 .gain .g { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; border-radius: 99px; background: color-mix(in srgb, var(--meadow) 10%, var(--surface)); font-weight: 700; }
-.gain .tk { font-size: 14px; }
+.gain .tk { font-size: 15px; box-shadow: none; background: #fff; }
 .choice { display: grid; gap: 8px; }
 .choice button { text-align: left; min-height: 46px; }
 .choice .bopt { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; padding: 6px 10px 6px 6px; }
@@ -372,7 +371,8 @@ function tokPos(sp) {
   return `position:absolute;left:${(tx - x0) / (x1 - x0) * 100}%;top:${(ty - y0) / (y1 - y0) * 100}%;transform:translate(-50%,-50%)`;
 }
 function pct(b) { return `left:${b[0]}%;top:${b[1]}%;width:${b[2] - b[0]}%;height:${b[3] - b[1]}%`; }
-function tokens(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="tk ${k}" title="${G[k]} ${n}">${n}</span>`).join(""); }
+function resIcon(k) { return `<img src="img/res/${k}.png" alt="${G[k]}">`; }
+function tokens(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="tk ${k}" title="${G[k]} ${n}">${resIcon(k)}×${n}</span>`).join(""); }
 
 // ---------- 상태 ----------
 const KEY = "acbs-automa-v3";
@@ -720,7 +720,7 @@ function spaceModal(id, bi) {
   const sp = SP[id];
   const g = id === 7 ? sp.fixed : (S.goods[id] || {});
   const items = Object.entries(g).filter(([, n]) => n > 0);
-  const gain = items.length ? `<div class="gain">${items.map(([k, n]) => `<span class="g"><span class="tk ${k}">${n}</span>${G[k]} ${n}${["sheep", "pig", "cow", "horse"].includes(k) ? "마리" : "개"}</span>`).join("")}</div>` : "";
+  const gain = items.length ? `<div class="gain">${items.map(([k, n]) => `<span class="g"><span class="tk ${k}">${resIcon(k)}×${n}</span>${G[k]} ${n}${["sheep", "pig", "cow", "horse"].includes(k) ? "마리" : "개"}</span>`).join("")}</div>` : "";
   const animalNote = sp.animal ? `<p class="sub small" style="margin:0">농장에 둘 자리가 없는 가축은 공동 창고로 돌려놓습니다.</p>` : "";
   let body = "", btns = "";
   if (id === 14) {
