@@ -148,6 +148,63 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .endgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .verdict { font-family: var(--font-display); font-size: 34px; }
 @media (prefers-reduced-motion: no-preference) { .space.lastbot { animation: pulse 1s ease-out 1; } }
+/* 하단 고정 바: 모바일에서 봇 결과와 주요 버튼을 엄지 영역에 모음 */
+.dock { display: none; }
+.lg { display: inline; } .sh { display: none; }
+@media (max-width: 640px) {
+  body { font-size: 14px; }
+  .wrap { padding-block: 10px calc(104px + env(safe-area-inset-bottom, 0px)); }
+  header.top { margin-bottom: 8px; align-items: center; flex-wrap: nowrap; }
+  header.top h1 { font-size: 21px; }
+  header.top .sub, .m-hide { display: none !important; }
+  header.top button { padding: 6px 10px; font-size: 13px; }
+  .status { padding: 8px 12px; margin-bottom: 8px; gap: 6px 12px; flex-wrap: nowrap; }
+  .status .round { font-size: 20px; white-space: nowrap; }
+  .status .pip { width: 9px; height: 9px; }
+  .status .turn, .status .label { display: none; }
+  .workers { margin-left: auto; white-space: nowrap; }
+  .boardwrap { padding: 6px; border-radius: 12px; overflow: visible; }
+  .board { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; min-width: 0; }
+  .space { min-height: 70px; padding: 5px 5px 6px; gap: 3px; border-width: 1.5px; border-radius: 8px; grid-template-rows: auto 1fr; }
+  .space .ds { display: none; }
+  .lg { display: none; } .sh { display: inline; }
+  .space .nm { font-size: 12.5px; display: block; margin-top: 2px; letter-spacing: -.02em; }
+  .space .no { font-size: 10px; padding: 0 4px; }
+  .occ { top: 4px; right: 4px; }
+  .meeple { width: 17px; height: 19px; font-size: 9px; border-radius: 9px 9px 3px 3px; }
+  .chip { font-size: 10.5px; padding: 0 5px; }
+  .goods { gap: 2px; min-height: 0; }
+  .space.wide .slots { grid-template-columns: 1fr; gap: 3px; }
+  .slot { font-size: 10px; min-height: 20px; padding: 1px 3px; gap: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .slot .meeple { flex: none; }
+  .legend { display: none; }
+  .buildings { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+  .bld { padding: 5px 6px; border-radius: 8px; }
+  .bld .nm { font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .bld .own { font-size: 10.5px; }
+  .play { gap: 12px; }
+  .side .botmove, .side .endcall { display: none; }
+  .dock { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+    background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px #0002;
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .dock-in { display: flex; align-items: center; gap: 12px; min-height: 56px; }
+  .dock-msg { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+  .dock-msg .die { font-size: 30px; }
+  .dock-msg .t { min-width: 0; font-size: 13px; line-height: 1.35; }
+  .dock-msg .t b { font-size: 14px; }
+  .dock-msg .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dock-btns { display: flex; gap: 8px; flex: none; }
+  .dock-btns button { min-height: 48px; padding: 8px 14px; }
+  .dock .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--player); color: #fff; }
+  .dock .pill.bot { background: var(--bot); }
+  .modal { place-items: end center; padding: 0; }
+  .modal .box { width: 100%; border-radius: 16px 16px 0 0; padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .choice button, #mclose { min-height: 48px; }
+  .setup { gap: 12px; }
+  .panel { padding: 14px; }
+  .mode span { font-size: 12px; }
+  #start { display: none; }
+}
 @keyframes pulse { from { box-shadow: 0 0 0 10px color-mix(in srgb, var(--bot) 30%, transparent); } }
 </style>
 
@@ -161,22 +218,22 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 const G = { wood: "나무", stone: "돌", reed: "갈대", fence: "경계선", sheep: "양", pig: "돼지", cow: "소", horse: "말" };
 // 게임판 위치 순서(왼→오, 위→아래). 14번은 '특수 건물 짓기'(일꾼 2자리).
 const SPACES = [
-  { id: 1, nm: "시작 플레이어 + 나무", ds: "나무 1개 누적", acc: s => add(s, "wood", 1) },
-  { id: 2, nm: "나무 3개", ds: "나무 3개 누적", acc: s => add(s, "wood", 3) },
-  { id: 3, nm: "돌 1개", ds: "돌 1개 누적", acc: s => add(s, "stone", 1) },
-  { id: 4, nm: "돌 2개", ds: "돌 2개 누적", acc: s => add(s, "stone", 2) },
-  { id: 5, nm: "울타리 치기", ds: "나무 1 → 경계선 1" },
-  { id: 6, nm: "담장 쌓기", ds: "경계선 2개 무료, 추가 돌 2" },
-  { id: 7, nm: "자원 시장", ds: "나무·돌·갈대 1개씩" },
-  { id: 8, nm: "농장 확장", ds: "경계선 1개 누적 + 확장판" },
-  { id: 9, nm: "축사 짓기", ds: "돌 3 + 갈대 1" },
-  { id: 10, nm: "여물통 놓기", ds: "1개 무료, 추가 나무 3" },
-  { id: 11, nm: "갈대와 양", ds: "비면 갈대, 있으면 양 +1", animal: ["reed", "sheep"] },
-  { id: 12, nm: "돼지와 양", ds: "비면 돼지, 있으면 양 +1", animal: ["pig", "sheep"] },
-  { id: 13, nm: "외양간으로 개조", ds: "나무 5 또는 돌 5" },
-  { id: 14, nm: "특수 건물 짓기", ds: "2자리 · 봇은 17–20 번호로 건물 수집", wide: true },
-  { id: 15, nm: "소와 돼지", ds: "비면 소, 있으면 돼지 +1", animal: ["cow", "pig"] },
-  { id: 16, nm: "말과 양", ds: "비면 말, 있으면 양 +1", animal: ["horse", "sheep"] },
+  { id: 1, sh: "시작+나무", nm: "시작 플레이어 + 나무", ds: "나무 1개 누적", acc: s => add(s, "wood", 1) },
+  { id: 2, sh: "나무 3", nm: "나무 3개", ds: "나무 3개 누적", acc: s => add(s, "wood", 3) },
+  { id: 3, sh: "돌 1", nm: "돌 1개", ds: "돌 1개 누적", acc: s => add(s, "stone", 1) },
+  { id: 4, sh: "돌 2", nm: "돌 2개", ds: "돌 2개 누적", acc: s => add(s, "stone", 2) },
+  { id: 5, sh: "울타리", nm: "울타리 치기", ds: "나무 1 → 경계선 1" },
+  { id: 6, sh: "담장", nm: "담장 쌓기", ds: "경계선 2개 무료, 추가 돌 2" },
+  { id: 7, sh: "자원 시장", nm: "자원 시장", ds: "나무·돌·갈대 1개씩" },
+  { id: 8, sh: "농장 확장", nm: "농장 확장", ds: "경계선 1개 누적 + 확장판" },
+  { id: 9, sh: "축사", nm: "축사 짓기", ds: "돌 3 + 갈대 1" },
+  { id: 10, sh: "여물통", nm: "여물통 놓기", ds: "1개 무료, 추가 나무 3" },
+  { id: 11, sh: "갈대·양", nm: "갈대와 양", ds: "비면 갈대, 있으면 양 +1", animal: ["reed", "sheep"] },
+  { id: 12, sh: "돼지·양", nm: "돼지와 양", ds: "비면 돼지, 있으면 양 +1", animal: ["pig", "sheep"] },
+  { id: 13, sh: "외양간", nm: "외양간으로 개조", ds: "나무 5 또는 돌 5" },
+  { id: 14, sh: "특수 건물", nm: "특수 건물 짓기", ds: "2자리 · 봇은 17–20 번호로 건물 수집", wide: true },
+  { id: 15, sh: "소·돼지", nm: "소와 돼지", ds: "비면 소, 있으면 돼지 +1", animal: ["cow", "pig"] },
+  { id: 16, sh: "말·양", nm: "말과 양", ds: "비면 말, 있으면 양 +1", animal: ["horse", "sheep"] },
 ];
 const SP = Object.fromEntries(SPACES.map(s => [s.id, s]));
 const MODES = {
@@ -424,7 +481,9 @@ function renderSetup() {
       <button class="primary" id="start">게임 시작</button>
       <p class="sub" style="font-size:13px">준비: 봇 몫으로 경계선 9개를 상자에 넣고, 남은 경계선 8개는 라운드 표시용으로 둡니다.</p>
     </section>
-  </div>` + rulesHTML();
+  </div>` + rulesHTML() + `<div class="dock"><div class="dock-in"><div class="dock-msg"><div class="t">
+    <b id="dockSum">${MODES[st.mode].nm} · ${st.picker === "d20" ? "D20" : "봇 덱"}</b><div>특수 건물 이름은 위에서 입력</div></div></div>
+    <div class="dock-btns"><button class="primary" data-act="start">게임 시작</button></div></div></div>`;
 
   const sync = () => {
     st.mode = document.querySelector('input[name=mode]:checked').value;
@@ -433,9 +492,12 @@ function renderSetup() {
     for (const k of ["extensions", "stalls", "stallVP", "stableVP"]) st[k] = Math.max(0, +document.getElementById(k).value || 0);
     st.buildings.forEach((b, i) => { b.name = document.getElementById("bn-" + i).value.trim() || `특수 건물 ${i + 1}`; b.vp = +document.getElementById("bv-" + i).value || 0; });
     document.getElementById("firstWrap").hidden = st.mode !== "normal";
+    document.getElementById("dockSum").textContent = `${MODES[st.mode].nm} · ${st.picker === "d20" ? "D20" : "봇 덱"}`;
   };
   app.querySelectorAll("input,select").forEach(el => el.addEventListener("change", sync));
-  document.getElementById("start").onclick = () => { sync(); startGame(); save(); render(); scheduleBot(); };
+  const go = () => { sync(); startGame(); save(); render(); scheduleBot(); };
+  document.getElementById("start").onclick = go;
+  app.querySelector('[data-act="start"]').onclick = go;
   const r = document.getElementById("resume");
   if (r) r.onclick = () => { S = load0.S; history = load0.history || []; load0 = null; render(); scheduleBot(); };
 }
@@ -461,7 +523,7 @@ function spaceHTML(sp, myTurn) {
   const label = `${sp.id}. ${sp.nm}${chips ? " · " + goodsText(g) : ""}${occ.length ? " · 사용 중" : ""}`;
   return `<div class="space${sp.wide ? " wide" : ""}${can ? " click" : ""}${occ.length && !sp.wide ? " taken" : ""}${last}"
     ${can ? `role="button" tabindex="0" data-sp="${sp.id}"` : ""} aria-label="${esc(label)}">
-    <div><span class="no">${sp.id}</span> <span class="nm">${sp.nm}</span><div class="ds">${sp.ds}</div></div>
+    <div><span class="no">${sp.id}</span> <span class="nm"><span class="lg">${sp.nm}</span><span class="sh">${sp.sh}</span></span><div class="ds">${sp.ds}</div></div>
     ${meeples}${body}</div>`;
 }
 
@@ -480,7 +542,7 @@ function renderPlay() {
   const sc = botScore();
   const lb = S.lastBot;
 
-  app.innerHTML = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button id="newgame">새 게임</button>`) + `
+  app.innerHTML = header(`<button class="m-hide" data-act="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button id="newgame">새 게임</button>`) + `
   <div class="status">
     <span class="round">${S.round}라운드</span><span class="pips" aria-label="8라운드 중 ${S.round}라운드">${pips}</span>
     <span class="workers"><span><span class="dot p"></span>나 ${pLeft}</span><span><span class="dot b"></span>봇 ${bLeft}</span></span>
@@ -496,9 +558,9 @@ function renderPlay() {
         <span class="own">${b.vp}점 · ${b.owner === "bot" ? "봇이 수집" : b.owner === "player" ? "내가 건설" : "남아 있음"}</span></div>`).join("")}</div>
     </div>
     <aside class="side">
-      ${turn === null ? `<div class="callout"><h3>집에 돌아오기 · 번식</h3>
+      ${turn === null ? `<div class="callout endcall"><h3>집에 돌아오기 · 번식</h3>
         <p class="sub" style="margin:0">일꾼 6개를 모두 놓았습니다. 내 농장의 가축을 번식시킨 뒤 라운드를 끝내세요.${S.settings.mode !== "easy" ? " 농장 확장 칸에 남은 경계선은 봇 규칙에 따라 처리됩니다." : ""}</p>
-        <button class="primary" id="endround">${S.round >= 8 ? "게임 종료 · 점수 계산" : `${S.round}라운드 끝내기`}</button></div>` : ""}
+        <button class="primary" data-act="endround">${S.round >= 8 ? "게임 종료 · 점수 계산" : `${S.round}라운드 끝내기`}</button></div>` : ""}
       ${lb ? `<div class="callout botmove"><span class="label">봇의 마지막 행동</span>
         <div class="botline"><span class="die">${lb.n}</span><div><b>${lb.n >= 17 ? esc(S.buildings[lb.n - 17].name) + " (특수 건물 짓기)" : SP[lb.space].nm}</b>
         <div class="sub" style="font-size:13px;margin:0">${lb.picker === "d20" ? `굴린 값: ${lb.rolls.join(" → ")}` : `뽑은 카드: ${lb.rolls[0]}${lb.rolls[0] !== lb.n ? ` → 다음 빈 칸 ${lb.n}` : ""}`}</div></div></div>
@@ -516,17 +578,31 @@ function renderPlay() {
       </div>
       <div class="callout"><h3>기록</h3><div class="log">${S.log.map(l => `<div><span class="num">R${l.r}</span> ${l.t}</div>`).join("")}</div></div>
     </aside>
-  </div>` + rulesHTML() + modalHTML();
+  </div>` + rulesHTML() + dockHTML(turn, lb) + modalHTML();
 
   app.querySelectorAll("[data-sp]").forEach(el => {
     const go = () => onSpace(+el.dataset.sp);
     el.onclick = go;
     el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
   });
-  document.getElementById("undo").onclick = undo;
+  app.querySelectorAll('[data-act="undo"]').forEach(b => b.onclick = undo);
+  app.querySelectorAll('[data-act="endround"]').forEach(b => b.onclick = endRound);
   document.getElementById("newgame").onclick = () => { modal = { type: "confirmNew" }; render(); };
-  const er = document.getElementById("endround"); if (er) er.onclick = endRound;
   bindModal();
+}
+
+function dockHTML(turn, lb) {
+  let msg;
+  const pill = turn === "player" ? `<span class="pill">내 차례</span>` : turn === "bot" ? `<span class="pill bot">봇 차례</span>` : "";
+  if (turn === "bot") msg = `<span class="die">…</span><div class="t">${pill}<div>봇이 칸을 고르는 중</div></div>`;
+  else if (lb) msg = `<span class="die">${lb.n}</span><div class="t">${pill}
+      <div><b>${lb.n >= 17 ? esc(S.buildings[lb.n - 17].name) : SP[lb.space].nm}</b></div>
+      <div>${lb.cleared ? `창고로: ${lb.cleared}` : lb.gain ? `봇 수집: ${esc(lb.gain)}` : lb.picker === "d20" ? `굴림: ${lb.rolls.join("→")}` : `카드 ${lb.rolls[0]}`}</div></div>`;
+  else msg = `<div class="t">${pill}<div>${turn === "player" ? "게임판 칸을 눌러 일꾼을 놓으세요" : "번식 후 라운드를 끝내세요"}</div></div>`;
+  if (turn === null) msg = `<div class="t"><b>번식 단계</b><div>가축을 번식시킨 뒤 진행</div></div>`;
+  const end = turn === null ? `<button class="primary" data-act="endround">${S.round >= 8 ? "점수 계산" : `${S.round}R 끝내기`}</button>` : "";
+  return `<div class="dock"><div class="dock-in"><div class="dock-msg">${msg}</div>
+    <div class="dock-btns"><button data-act="undo" ${history.length ? "" : "disabled"} aria-label="되돌리기">되돌리기</button>${end}</div></div></div>`;
 }
 
 function onSpace(id) {
