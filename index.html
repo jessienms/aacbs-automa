@@ -142,8 +142,9 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .supply b { color: var(--fg); }
 
 /* 확인 창 */
-.modal { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; padding: 16px; z-index: 20; }
-.modal .box { background: var(--surface); color: var(--fg); border-radius: 14px; padding: 18px; width: min(460px, 100%); display: grid; gap: 12px; max-height: 88vh; overflow: auto; }
+.modal { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; padding: 16px; z-index: 20; overscroll-behavior: contain; }
+html:has(.modal), html:has(.modal) body { overflow: hidden; }
+.modal .box { overscroll-behavior: contain; background: var(--surface); color: var(--fg); border-radius: 14px; padding: 18px; width: min(460px, 100%); display: grid; gap: 12px; max-height: 88vh; overflow: auto; }
 .box.notice { border-top: 5px solid var(--bot); }
 .gain { display: flex; flex-wrap: wrap; gap: 8px; }
 .gain .g { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; border-radius: 99px; background: color-mix(in srgb, var(--meadow) 10%, var(--surface)); font-weight: 700; }
@@ -516,7 +517,6 @@ function renderSetup() {
     const want = +document.getElementById("nExtra").value;
     if (want !== st.extras.length) st.extras = want < st.extras.length ? st.extras.slice(0, want) : randomExtras(want, st.extras);
     save(); renderSetup();
-    if (e?.target?.id) document.getElementById(e.target.id)?.focus();
   };
   app.querySelectorAll("input,select").forEach(el => el.addEventListener("change", sync));
   const rp = document.getElementById("randomPicks"); if (rp) rp.onclick = () => { st.extras = randomExtras(st.extras.length, []); save(); renderSetup(); };
@@ -688,6 +688,9 @@ function modalHTML() {
 }
 function bindModal() {
   const m = document.getElementById("modal"); if (!m) return;
+  // 창 밖이나 스크롤할 내용이 없는 창 안을 끌어도 뒤 페이지가 움직이지 않게
+  const box = m.querySelector(".box");
+  m.addEventListener("touchmove", e => { if (!box.contains(e.target) || box.scrollHeight <= box.clientHeight) e.preventDefault(); }, { passive: false });
   const ok = document.getElementById("nok");
   if (ok) { ok.onclick = confirmNotice; document.getElementById("nundo").onclick = undo; ok.focus(); return; }
   document.getElementById("mclose").onclick = () => { modal = null; render(); };
@@ -711,13 +714,13 @@ function scoreRow(id, label, options, cur, pts, hint) {
 }
 function fmt(n) { return (n > 0 ? "+" : "") + (Number.isInteger(n) ? n : n.toFixed(1)); }
 
-function renderEnd() {
+function renderEnd(patch) {
   const sc = botScore(), ps = S.ps, r = playerScore();
   const verdict = sc ? (r.total > sc.total ? "승리!" : r.total === sc.total ? "동점" : "봇의 승리") : "";
   let best = null; try { best = +localStorage.getItem(KEY + "-best-" + S.settings.mode) || null; } catch (e) {}
   const notBot = S.buildings.map((b, i) => ({ b, i })).filter(x => x.b.owner !== "bot");
 
-  app.innerHTML = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
+  const html = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
   <div class="endsum">
     <div><span class="label">내 점수</span><div class="n">${fmt(r.total).replace("+", "")}</div></div>
     ${sc ? `<div><span class="label">봇 점수</span><div class="n">${sc.total}</div></div><div class="verdict">${verdict}</div>`
@@ -758,13 +761,24 @@ function renderEnd() {
     </div>
   </div>` + modalHTML();
 
+  if (patch) {
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
+    if (tmp.querySelectorAll("select").length === app.querySelectorAll("select").length) {
+      for (const sel of [".endsum", ".srow .sl small", ".srow .sp"]) {
+        const a = app.querySelectorAll(sel), b = tmp.querySelectorAll(sel);
+        a.forEach((el, i) => { if (b[i] && el.innerHTML !== b[i].innerHTML) el.innerHTML = b[i].innerHTML; });
+      }
+      return;
+    }
+  }
+  app.innerHTML = html;
+
   app.querySelectorAll("select[id^=ps-]").forEach(el => el.onchange = () => {
     const k = el.id.slice(3);
     if (k.startsWith("bv-")) ps.bv[+k.slice(3)] = el.value === "" ? null : +el.value; else ps[k] = +el.value;
     const t = playerScore().total;
     try { const kk = KEY + "-best-" + S.settings.mode; if (t > (+localStorage.getItem(kk) || -99)) localStorage.setItem(kk, t); } catch (e) {}
-    save(); renderEnd();
-    document.getElementById(el.id)?.focus();
+    save(); renderEnd(true);
   });
   document.getElementById("undo").onclick = undo;
   document.getElementById("newgame").onclick = () => { S = freshSetup(S); history = []; save(); render(); };
