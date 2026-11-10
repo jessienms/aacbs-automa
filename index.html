@@ -7,40 +7,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;700&display=swap">
 <style>
-/* Layout: 게임판을 닮은 4열 행동 칸 격자가 중심, 위에 라운드/차례 바, 오른쪽(모바일은 아래)에 봇 상태와 기록 */
+/* Layout: 룰북의 실제 게임판 이미지 위에 자원·일꾼을 겹쳐 보여주고, 아래에 건물 타일 띠, 오른쪽(모바일은 하단 바)에 봇 결과 */
 :root {
-  --meadow: #3f6b34;      /* 게임판 초원 */
+  --meadow: #3f6b34;
   --meadow-deep: #2c4d25;
-  --straw: #f3dc8a;       /* 행동 칸 노란 바탕 */
-  --straw-edge: #c9a94a;
-  --bg: #eef0e4;          /* 녹색 기운의 밝은 중립 */
+  --straw: #f3dc8a;
+  --bg: #eef0e4;
   --surface: #fbfbf5;
   --fg: #23261c;
   --muted: #61664f;
   --line: #d3d6c2;
-  --player: #2c5d9c;      /* 플레이어 일꾼 */
-  --bot: #a33b2b;         /* 봇 일꾼 */
-  --tile-fg: #2e2a17;
-  --ok: #2f7d3b;
+  --player: #2c5d9c;
+  --bot: #b8402e;
   --font-display: "Do Hyeon", "Noto Sans KR", system-ui, sans-serif;
   --font-body: "Noto Sans KR", system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --meadow: #4f8442; --meadow-deep: #1b2a17; --straw: #d9c272; --straw-edge: #9c8434;
+  --meadow: #4f8442; --meadow-deep: #1b2a17; --straw: #d9c272;
   --bg: #151910; --surface: #1f251a; --fg: #e8ebdc; --muted: #a3a98f; --line: #343b2c;
-  --player: #7fa9e6; --bot: #e58a76; --tile-fg: #241f0c; --ok: #7cc788; color-scheme: dark } }
+  --player: #7fa9e6; --bot: #ef8a74; color-scheme: dark } }
 :root[data-theme="dark"] {
-  --meadow: #4f8442; --meadow-deep: #1b2a17; --straw: #d9c272; --straw-edge: #9c8434;
+  --meadow: #4f8442; --meadow-deep: #1b2a17; --straw: #d9c272;
   --bg: #151910; --surface: #1f251a; --fg: #e8ebdc; --muted: #a3a98f; --line: #343b2c;
-  --player: #7fa9e6; --bot: #e58a76; --tile-fg: #241f0c; --ok: #7cc788; color-scheme: dark }
+  --player: #7fa9e6; --bot: #ef8a74; color-scheme: dark }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 :root { padding-top: env(safe-area-inset-top, 0px); }
-img { max-width: 100%; }
+img { max-width: 100%; display: block; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
 .wrap { max-width: 1120px; margin: 0 auto; padding-block: 20px 48px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -49,20 +46,21 @@ h1 { font-size: 30px; line-height: 1.15; }
 h2 { font-size: 22px; }
 h3 { font-size: 18px; }
 .sub { color: var(--muted); margin: 4px 0 0; }
+.small { font-size: 13px; }
 .label { font-size: 12px; letter-spacing: .06em; color: var(--muted); font-weight: 500; }
 .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); padding: 8px 14px; }
 button:hover:not(:disabled) { border-color: var(--muted); }
-button:focus-visible, input:focus-visible, select:focus-visible, .space:focus-visible { outline: 3px solid var(--player); outline-offset: 2px; }
+button:focus-visible, select:focus-visible, .spot:focus-visible, .tile:focus-visible { outline: 3px solid var(--player); outline-offset: 2px; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 button.primary { background: var(--meadow); border-color: var(--meadow); color: #fff; font-weight: 700; }
 button.primary:hover:not(:disabled) { background: var(--meadow-deep); }
-input, select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 
 header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* Setup */
+/* 설정 */
 .setup { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
 .modes { display: grid; gap: 8px; }
@@ -71,13 +69,18 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .mode b { font-weight: 700; }
 .mode span { color: var(--muted); font-size: 13px; }
 .mode:has(input:checked) { border-color: var(--meadow); background: color-mix(in srgb, var(--meadow) 9%, var(--surface)); }
-.bld-row { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) 3em; gap: 8px; align-items: center; }
 .field { display: grid; gap: 4px; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .row .field { flex: 1 1 120px; }
+.basicrow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.basicrow img { border-radius: 6px; }
+.pick { display: grid; grid-template-columns: 2.2em 44px minmax(0, 1fr); gap: 8px; align-items: center; }
+.pick img { width: 44px; height: 44px; border-radius: 4px; }
+.pick select { width: 100%; }
+.pick-note { font-size: 12px; color: var(--muted); margin: -6px 0 0 calc(2.2em + 60px); }
 
-/* Play */
-.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; background: var(--meadow-deep); color: #f4f1dc; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; }
+/* 상태 바 */
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; background: var(--meadow-deep); color: #f4f1dc; border-radius: 12px; padding: 10px 16px; margin-bottom: 14px; }
 .status .round { font-family: var(--font-display); font-size: 26px; }
 .pips { display: flex; gap: 4px; }
 .pip { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #f4f1dc88; }
@@ -88,47 +91,47 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-right: 3px; }
 .dot.p { background: var(--player); } .dot.b { background: var(--bot); }
 
-.play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
-@media (max-width: 860px) { .play { grid-template-columns: minmax(0, 1fr); } }
+.play { display: grid; grid-template-columns: minmax(0, 620px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .play { grid-template-columns: minmax(0, 1fr); } }
 
-.boardwrap { background: var(--meadow); border-radius: 14px; padding: 12px; overflow-x: auto; }
-.board { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; min-width: 520px; }
-.space { position: relative; background: var(--straw); color: var(--tile-fg); border: 2px solid var(--straw-edge); border-radius: 10px; padding: 8px 9px 9px; min-height: 104px; display: grid; grid-template-rows: auto 1fr auto; gap: 4px; text-align: left; }
-.space.click { cursor: pointer; }
-.space.click:hover { box-shadow: 0 0 0 3px #fff8; }
-.space.taken { filter: saturate(.55); }
-.space.lastbot { box-shadow: 0 0 0 3px var(--bot); }
-.space .no { font-family: var(--font-mono); font-size: 12px; background: var(--tile-fg); color: var(--straw); border-radius: 4px; padding: 0 5px; justify-self: start; }
-.space .nm { font-weight: 700; font-size: 14px; line-height: 1.25; }
-.space .ds { font-size: 11.5px; opacity: .78; line-height: 1.3; }
-.goods { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; align-content: end; }
-.chip { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: #fff9; border: 1px solid #0002; white-space: nowrap; }
-.chip.wood { background: #b07a45; color: #fff; } .chip.stone { background: #6f7176; color: #fff; }
-.chip.reed { background: #e8e1c8; } .chip.fence { background: #e2c12f; }
-.chip.sheep { background: #fff; } .chip.pig { background: #2b2b2b; color: #fff; }
-.chip.cow { background: #8a5a35; color: #fff; } .chip.horse { background: #c6955e; color: #fff; }
-.chip.ext { background: #5f8f4e; color: #fff; } .chip.stall { background: #d9d0b0; }
-.occ { display: flex; gap: 4px; position: absolute; top: 7px; right: 7px; }
-.meeple { width: 22px; height: 24px; border-radius: 11px 11px 4px 4px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }
+/* 실제 게임판 */
+.board { position: relative; aspect-ratio: 1 / 1; width: 100%; max-width: 100%; border-radius: 10px; overflow: hidden;
+  background: #4a7a33 url("img/board.jpg") center / 100% 100% no-repeat; box-shadow: 0 2px 10px #0003; }
+.spot { position: absolute; padding: 0; border: 0; background: transparent; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 3%; }
+.spot.half { border-radius: 999px 0 0 999px; } .spot.half.r { border-radius: 0 999px 999px 0; }
+.spot.click { cursor: pointer; box-shadow: inset 0 0 0 2.5px #2c5d9cd9; }
+.spot.click:hover { background: #2c5d9c26; }
+.spot.taken::before { content: ""; position: absolute; inset: 0; background: #1b2414a8; border-radius: inherit; }
+.spot.lastbot { box-shadow: 0 0 0 3px var(--bot), inset 0 0 0 2px var(--bot); }
+@media (prefers-reduced-motion: no-preference) { .spot.lastbot { animation: pulse 1.2s ease-out 1; } }
+@keyframes pulse { from { box-shadow: 0 0 0 14px #b8402e44, inset 0 0 0 2px var(--bot); } }
+.tks { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
+.tk { min-width: 1.9em; height: 1.9em; padding: 0 .35em; border-radius: 999px; display: inline-grid; place-items: center;
+  font: 700 clamp(11px, 2.6vw, 15px)/1 var(--font-mono); border: 2px solid #fff; box-shadow: 0 1px 3px #0007; }
+.tk.wood { background: #8b5a2b; color: #fff; } .tk.stone { background: #55585e; color: #fff; }
+.tk.reed { background: #efe6c3; color: #3b3518; } .tk.fence { background: #e7c22c; color: #3b3518; }
+.tk.sheep { background: #fff; color: #222; border-color: #222; } .tk.pig { background: #1e1e1e; color: #fff; }
+.tk.cow { background: #7a4a24; color: #fff; } .tk.horse { background: #c9935a; color: #2a1a08; }
+.meeple { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: clamp(22px, 6vw, 32px); aspect-ratio: 1; border-radius: 50%;
+  display: grid; place-items: center; font: 700 clamp(10px, 2.6vw, 13px)/1 var(--font-body); color: #fff; border: 2px solid #fff; box-shadow: 0 1px 4px #0008; }
 .meeple.p { background: var(--player); } .meeple.b { background: var(--bot); }
-.space.wide .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.slot { border: 1.5px dashed #0004; border-radius: 6px; padding: 4px 6px; font-size: 11.5px; min-height: 30px; display: flex; align-items: center; gap: 6px; }
-.slot.full { border-style: solid; background: #fff7; }
-@media (max-width: 600px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .boardwrap { padding: 8px; } }
-.legend { color: #f4f1dcd0; font-size: 12px; margin: 8px 2px 0; }
 
-.buildings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-@media (max-width: 560px) { .buildings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.bld { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; min-width: 0; }
-.bld .nm { font-weight: 700; overflow-wrap: anywhere; }
-.bld .own { font-size: 12px; color: var(--muted); }
-.bld.bot { border-color: var(--bot); } .bld.bot .own { color: var(--bot); font-weight: 700; }
-.bld.player { border-color: var(--player); } .bld.player .own { color: var(--player); font-weight: 700; }
+/* 건물 타일 띠 */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; margin-top: 10px; }
+.tile { position: relative; padding: 0; border: 0; background: none; border-radius: 6px; overflow: hidden; }
+.tile img { width: 100%; aspect-ratio: 1; }
+.tile .no { position: absolute; left: 2px; bottom: 2px; font: 700 10px/1 var(--font-mono); background: #000a; color: #fff; padding: 2px 3px; border-radius: 3px; }
+.tile.click { cursor: pointer; box-shadow: 0 0 0 2px var(--player); }
+.tile.own-bot img, .tile.own-player img { filter: grayscale(.7) brightness(.55); }
+.tile .own { position: absolute; inset: auto 0 38% 0; text-align: center; font-weight: 700; font-size: 12px; color: #fff; }
+.tile .own span { padding: 2px 7px; border-radius: 99px; }
+.tile.own-bot .own span { background: var(--bot); } .tile.own-player .own span { background: var(--player); }
+.tile.lastbot { box-shadow: 0 0 0 3px var(--bot); }
 
 .side { display: grid; gap: 14px; min-width: 0; }
 .callout { border-radius: 12px; padding: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; }
 .callout.botmove { border-left: 5px solid var(--bot); }
-.die { font-family: var(--font-mono); font-size: 34px; line-height: 1; color: var(--bot); }
+.big { font-family: var(--font-mono); font-size: 34px; line-height: 1; color: var(--bot); }
 .botline { display: flex; align-items: center; gap: 14px; }
 .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px; }
 .stats .v { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -138,11 +141,34 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .supply { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
 .supply b { color: var(--fg); }
 
-/* Modal */
-.modal { position: fixed; inset: 0; background: #0008; display: grid; place-items: center; padding: 16px; z-index: 20; }
-.modal .box { background: var(--surface); color: var(--fg); border-radius: 14px; padding: 18px; width: min(440px, 100%); display: grid; gap: 12px; max-height: 90vh; overflow: auto; }
+/* 확인 창 */
+.modal { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; padding: 16px; z-index: 20; }
+.modal .box { background: var(--surface); color: var(--fg); border-radius: 14px; padding: 18px; width: min(460px, 100%); display: grid; gap: 12px; max-height: 88vh; overflow: auto; }
+.box.notice { border-top: 5px solid var(--bot); }
+.gain { display: flex; flex-wrap: wrap; gap: 8px; }
+.gain .g { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; border-radius: 99px; background: color-mix(in srgb, var(--meadow) 10%, var(--surface)); font-weight: 700; }
+.gain .tk { font-size: 14px; }
 .choice { display: grid; gap: 8px; }
-.choice button { text-align: left; }
+.choice button { text-align: left; min-height: 46px; }
+.choice .bopt { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; padding: 6px 10px 6px 6px; }
+.choice .bopt img { width: 48px; height: 48px; border-radius: 4px; }
+.takes { margin: 0; padding-left: 20px; font-weight: 700; }
+.mhead { display: flex; gap: 12px; align-items: center; }
+.mhead img { width: 72px; height: 72px; border-radius: 6px; flex: none; }
+
+/* 점수 */
+.endsum { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 32px; background: var(--meadow-deep); color: #f4f1dc; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; }
+.endsum .label { color: #f4f1dcb0; }
+.endsum .n { font: 700 38px/1.1 var(--font-mono); }
+.endsum .verdict { margin-left: auto; color: var(--straw); font-family: var(--font-display); font-size: 34px; }
+.endgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.srow { display: grid; grid-template-columns: minmax(0, 1fr) 6.5em 3.2em; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.srow .sl { min-width: 0; display: grid; }
+.srow .sl small { color: var(--muted); font-size: 12px; }
+.srow select { width: 100%; min-height: 40px; }
+.srow .sp { text-align: right; font-weight: 700; }
+.srow.total { border-bottom: 0; border-top: 2px solid var(--fg); font-size: 18px; font-weight: 700; }
+.panel h3 { margin-top: 6px; }
 
 .rules { margin-top: 28px; }
 .rules details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
@@ -151,12 +177,8 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .rules ol, .rules ul { margin: 6px 0; padding-left: 20px; max-width: 65ch; }
 .rules li { margin: 2px 0; }
 
-.endgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-.verdict { font-family: var(--font-display); font-size: 34px; }
-@media (prefers-reduced-motion: no-preference) { .space.lastbot { animation: pulse 1s ease-out 1; } }
-/* 하단 고정 바: 모바일에서 봇 결과와 주요 버튼을 엄지 영역에 모음 */
+/* 하단 고정 바 (모바일) */
 .dock { display: none; }
-.lg { display: inline; } .sh { display: none; }
 @media (max-width: 640px) {
   body { font-size: 14px; }
   .wrap { padding-block: 10px calc(104px + env(safe-area-inset-bottom, 0px)); }
@@ -169,25 +191,8 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
   .status .pip { width: 9px; height: 9px; }
   .status .turn, .status .label { display: none; }
   .workers { margin-left: auto; white-space: nowrap; }
-  .boardwrap { padding: 6px; border-radius: 12px; overflow: visible; }
-  .board { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; min-width: 0; }
-  .space { min-height: 70px; padding: 5px 5px 6px; gap: 3px; border-width: 1.5px; border-radius: 8px; grid-template-rows: auto 1fr; }
-  .space .ds { display: none; }
-  .lg { display: none; } .sh { display: inline; }
-  .space .nm { font-size: 12.5px; display: block; margin-top: 2px; letter-spacing: -.02em; }
-  .space .no { font-size: 10px; padding: 0 4px; }
-  .occ { top: 4px; right: 4px; }
-  .meeple { width: 17px; height: 19px; font-size: 9px; border-radius: 9px 9px 3px 3px; }
-  .chip { font-size: 10.5px; padding: 0 5px; }
-  .goods { gap: 2px; min-height: 0; }
-  .space.wide .slots { grid-template-columns: 1fr; gap: 3px; }
-  .slot { font-size: 10px; min-height: 20px; padding: 1px 3px; gap: 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .slot .meeple { flex: none; }
-  .legend { display: none; }
-  .buildings { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
-  .bld { padding: 5px 6px; border-radius: 8px; }
-  .bld .nm { font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .bld .own { font-size: 10.5px; }
+  .tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; margin-top: 6px; }
+  .tile .own { font-size: 10px; }
   .play { gap: 12px; }
   .side .botmove, .side .endcall { display: none; }
   .dock { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
@@ -195,45 +200,22 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
     padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
   .dock-in { display: flex; align-items: center; gap: 12px; min-height: 56px; }
   .dock-msg { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
-  .dock-msg .die { font-size: 30px; }
+  .dock-msg .big { font-size: 28px; }
   .dock-msg .t { min-width: 0; font-size: 13px; line-height: 1.35; }
   .dock-msg .t b { font-size: 14px; }
   .dock-msg .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dock-btns { display: flex; gap: 8px; flex: none; }
   .dock-btns button { min-height: 48px; padding: 8px 14px; }
-  .dock .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--player); color: #fff; }
-  .dock .pill.bot { background: var(--bot); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: var(--player); color: #fff; }
+  .pill.bot { background: var(--bot); }
   .modal { place-items: end center; padding: 0; }
   .modal .box { width: 100%; border-radius: 16px 16px 0 0; padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
-  .choice button, #mclose { min-height: 48px; }
   .setup { gap: 12px; }
   .panel { padding: 14px; }
   .mode span { font-size: 12px; }
   #start { display: none; }
 }
-@keyframes pulse { from { box-shadow: 0 0 0 10px color-mix(in srgb, var(--bot) 30%, transparent); } }
-
-/* 설정: 특수 건물 드롭다운 */
-.bld-row select { width: 100%; }
-.bld-row .vp { text-align: right; font-size: 13px; }
-.bld-note { font-size: 12px; color: var(--muted); margin: -6px 0 0 2.9em; }
-/* 봇 알림 */
-.notice { border-top: 5px solid var(--bot); }
-.takes { margin: 0; padding-left: 20px; font-weight: 700; }
-/* 점수 계산 */
-.endsum { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 32px; background: var(--meadow-deep); color: #f4f1dc; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; }
-.endsum .label { color: #f4f1dcb0; }
-.endsum .big { font-size: 38px; line-height: 1.1; }
-.endsum .verdict { margin-left: auto; color: var(--straw); }
-.srow { display: grid; grid-template-columns: minmax(0, 1fr) 5.5em 3.2em; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
-.srow .sl { min-width: 0; display: grid; }
-.srow .sl small { color: var(--muted); font-size: 12px; }
-.srow select { width: 100%; min-height: 40px; }
-.srow .sp { text-align: right; font-weight: 700; }
-.srow.total { border-bottom: 0; border-top: 2px solid var(--fg); font-size: 18px; font-weight: 700; }
-.panel h3 { margin-top: 6px; }
 </style>
-
 </head>
 <body>
 <div class="wrap" id="app"></div>
@@ -244,53 +226,59 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 
 // ---------- 정적 데이터 ----------
 const G = { wood: "나무", stone: "돌", reed: "갈대", fence: "경계선", sheep: "양", pig: "돼지", cow: "소", horse: "말" };
-// 게임판 위치 순서(왼→오, 위→아래). 14번은 '특수 건물 짓기'(일꾼 2자리).
+// 게임판 행동 칸과 이미지 위 위치(%: 왼쪽, 위, 오른쪽, 아래). 14번은 특수 건물 짓기 2자리.
 const SPACES = [
-  { id: 1, sh: "시작+나무", nm: "시작 플레이어 + 나무", ds: "나무 1개 누적", acc: s => add(s, "wood", 1) },
-  { id: 2, sh: "나무 3", nm: "나무 3개", ds: "나무 3개 누적", acc: s => add(s, "wood", 3) },
-  { id: 3, sh: "돌 1", nm: "돌 1개", ds: "돌 1개 누적", acc: s => add(s, "stone", 1) },
-  { id: 4, sh: "돌 2", nm: "돌 2개", ds: "돌 2개 누적", acc: s => add(s, "stone", 2) },
-  { id: 5, sh: "울타리", nm: "울타리 치기", ds: "나무 1 → 경계선 1" },
-  { id: 6, sh: "담장", nm: "담장 쌓기", ds: "경계선 2개 무료, 추가 돌 2" },
-  { id: 7, sh: "자원 시장", nm: "자원 시장", ds: "나무·돌·갈대 1개씩" },
-  { id: 8, sh: "농장 확장", nm: "농장 확장", ds: "경계선 1개 누적 + 확장판" },
-  { id: 9, sh: "축사", nm: "축사 짓기", ds: "돌 3 + 갈대 1" },
-  { id: 10, sh: "여물통", nm: "여물통 놓기", ds: "1개 무료, 추가 나무 3" },
-  { id: 11, sh: "갈대·양", nm: "갈대와 양", ds: "비면 갈대, 있으면 양 +1", animal: ["reed", "sheep"] },
-  { id: 12, sh: "돼지·양", nm: "돼지와 양", ds: "비면 돼지, 있으면 양 +1", animal: ["pig", "sheep"] },
-  { id: 13, sh: "외양간", nm: "외양간으로 개조", ds: "나무 5 또는 돌 5" },
-  { id: 14, sh: "특수 건물", nm: "특수 건물 짓기", ds: "2자리 · 봇은 17–20번 건물 수집", wide: true },
-  { id: 15, sh: "소·돼지", nm: "소와 돼지", ds: "비면 소, 있으면 돼지 +1", animal: ["cow", "pig"] },
-  { id: 16, sh: "말·양", nm: "말과 양", ds: "비면 말, 있으면 양 +1", animal: ["horse", "sheep"] },
+  { id: 1, nm: "시작 플레이어 + 나무", ds: "시작 플레이어 마커를 가져옵니다 (솔로에서는 의미 없음)", box: [14.3, 4.2, 24.0, 20.5], half: "l", acc: s => add(s, "wood", 1) },
+  { id: 2, nm: "나무 3개", box: [26.2, 4.2, 35.6, 20.5], half: "r", acc: s => add(s, "wood", 3) },
+  { id: 3, nm: "돌 1개", box: [61.6, 4.2, 71.0, 20.5], half: "l", acc: s => add(s, "stone", 1) },
+  { id: 4, nm: "돌 2개", box: [73.3, 4.2, 82.6, 20.5], half: "r", acc: s => add(s, "stone", 2) },
+  { id: 5, nm: "울타리 치기", ds: "나무 1개당 경계선 1개를 원하는 만큼 놓습니다", box: [7.4, 27.5, 23.8, 44.7] },
+  { id: 6, nm: "담장 쌓기", ds: "경계선 2개 무료, 그 뒤 돌 2개당 1개", box: [26.2, 27.5, 42.6, 44.7] },
+  { id: 7, nm: "자원 시장", ds: "공동 창고에서 가져옵니다", box: [54.1, 27.5, 70.9, 44.7], fixed: { wood: 1, stone: 1, reed: 1 } },
+  { id: 8, nm: "농장 확장", ds: "경계선을 모두 가져오고 확장판을 연결합니다", box: [73.3, 27.5, 89.4, 44.7] },
+  { id: 9, nm: "축사 짓기", ds: "돌 3 + 갈대 1로 축사 1개", box: [7.4, 50.9, 23.8, 70.9] },
+  { id: 10, nm: "여물통 놓기", ds: "1개 무료, 추가 1개당 나무 3", box: [26.2, 50.9, 42.6, 70.9] },
+  { id: 11, nm: "갈대와 양", box: [56.5, 58.6, 70.9, 74.0], animal: ["reed", "sheep"] },
+  { id: 12, nm: "돼지와 양", box: [73.3, 58.6, 87.2, 74.0], animal: ["pig", "sheep"] },
+  { id: 13, nm: "외양간으로 개조", ds: "축사 1개당 나무 5 또는 돌 5", box: [7.4, 76.7, 23.8, 97.1] },
+  { id: 14, nm: "특수 건물 짓기", ds: "건물 1개를 짓습니다", boxes: [[26.2, 76.7, 43.0, 82.4], [26.6, 91.0, 43.0, 97.1]] },
+  { id: 15, nm: "소와 돼지", box: [56.5, 75.0, 70.9, 89.4], animal: ["cow", "pig"] },
+  { id: 16, nm: "말과 양", box: [72.9, 75.0, 87.2, 89.4], animal: ["horse", "sheep"] },
 ];
 const SP = Object.fromEntries(SPACES.map(s => [s.id, s]));
 
-// 룰북 9–12쪽 특수 건물. [이름, 봇 기준 점수, 플레이어 점수 선택지(변동 점수일 때), 비고]
-const SPECIAL = [
-  ["가축 상점", 3], ["간이 우리", 0], ["갈대집", 0], ["거래소", 1], ["건설 회사", 2],
-  ["건초 선반", 0], ["건초더미", 1], ["구석진 집", 4], ["가구 제작소", 0], ["가내 수공업소", 1],
-  ["개집", 0], ["급식장", 0], ["농업용 우물", 0], ["농장용품점", 0],
-  ["대농장", 0, [0, 3], "특수 건물 5채 이상이면 3점"], ["돌 조각소", 0, [0, 2, 4, 6, 8, 10, 12, 14], "올려둔 돌 1개당 2점"],
-  ["돼지 축사", 0, [0, 4], "돼지 13마리 이상이면 4점"], ["마구간 딸린 집", 3], ["마을회관", 2],
-  ["말 사육장", 3], ["먹이용 근대밭", 0], ["멧돼지 우리", 0], ["목공소", 1], ["목수 공방", 1],
-  ["목장", 2], ["목재 상점", 1], ["바닥재 전문점", 0], ["분만실", 0], ["사료 저장고", 0, [0, 3], "여물통 5개 이상이면 3점"],
-  ["사무실", 6, [6, 4, 2, 0, -2], "윗줄 건물 1채당 -2점"], ["소 농장", 1], ["소 시장", 2],
-  ["소 축사", 0, [0, 4], "소 11마리 이상이면 4점"], ["여관", 4], ["오리 연못", 1], ["온실", 1],
-  ["우유 농장", 3], ["울타리 설치업소", 0], ["유기농 농장", 4], ["인테리어 용품점", 1], ["임시 사육장", 1],
-  ["자재 할인점", 7], ["작업장", 2], ["작은 확장터", 0, [0, 2, 4, 6, 8], "인접 건물 1채당 2점"],
-  ["저택", 7, [7, 5, 3, 1, -1], "아랫줄 건물 1채당 -2점"], ["전원주택", 1], ["제재소", 4],
-  ["증축된 오두막", 4], ["집사의 사무실", -3], ["큰 확장터", 0, [0, 2, 4, 6, 8], "인접 건물 1채당 2점"],
-  ["통나무 집", 0, [0, 4], "개인 창고 나무 4개 이상이면 4점"], ["품종 연구소", 0], ["하인의 집", 0], ["헛간", 0],
-].map(([name, vp, opts, note]) => ({ name, vp, opts, note }));
-// 기본 특수 건물 (항상 사용, 봇은 가져가지 않음)
-const BASIC = [
-  { name: "나무골조 집", vp: 5 }, { name: "개방형 외양간", vp: 2 },
-  { name: "가축 보호소", vp: 0 }, { name: "저장고", vp: 0, note: "건축 자원 1개당 0.5점" },
+// 룰북 9–12쪽 건물. 배열 순서 = img/tiles/NN.jpg 번호. basic: 기본 특수 건물(항상 포함).
+// vp = 봇 기준 점수, opts = 플레이어 점수 선택지(변동 점수일 때)
+const BLD = [
+  { name: "나무골조 집", vp: 5, basic: true }, { name: "저장고", vp: 0, basic: true, note: "건축 자원 1개당 0.5점" },
+  { name: "가축 상점", vp: 3 }, { name: "마을회관", vp: 2 }, { name: "헛간", vp: 0 }, { name: "품종 연구소", vp: 0 },
+  { name: "가축 보호소", vp: 0, basic: true }, { name: "개방형 외양간", vp: 2, basic: true },
+  { name: "건설 회사", vp: 2 }, { name: "마구간 딸린 집", vp: 3 }, { name: "목수 공방", vp: 1 }, { name: "소 농장", vp: 1 },
+  { name: "소 시장", vp: 2 }, { name: "온실", vp: 1 }, { name: "구석진 집", vp: 4 }, { name: "증축된 오두막", vp: 4 },
+  { name: "전원주택", vp: 1 }, { name: "소 축사", vp: 0, opts: [0, 4], note: "소 11마리 이상이면 4점" },
+  { name: "우유 농장", vp: 3 }, { name: "개집", vp: 0 }, { name: "오리 연못", vp: 1 },
+  { name: "대농장", vp: 0, opts: [0, 3], note: "특수 건물 5채 이상이면 3점" }, { name: "농장용품점", vp: 0 },
+  { name: "농업용 우물", vp: 0 }, { name: "사료 저장고", vp: 0, opts: [0, 3], note: "여물통 5개 이상이면 3점" },
+  { name: "급식장", vp: 0 }, { name: "울타리 설치업소", vp: 0 }, { name: "분만실", vp: 0 }, { name: "바닥재 전문점", vp: 0 },
+  { name: "먹이용 근대밭", vp: 0 }, { name: "건초 선반", vp: 0 }, { name: "건초더미", vp: 1 }, { name: "인테리어 용품점", vp: 1 },
+  { name: "가내 수공업소", vp: 1 }, { name: "여관", vp: 4 }, { name: "가구 제작소", vp: 0 },
+  { name: "큰 확장터", vp: 0, opts: [0, 2, 4, 6, 8], note: "인접 건물 1채당 2점" },
+  { name: "통나무 집", vp: 0, opts: [0, 4], note: "개인 창고 나무 4개 이상이면 4점" },
+  { name: "저택", vp: 7, opts: [7, 5, 3, 1, -1], note: "아랫줄 건물 1채당 -2점" }, { name: "자재 할인점", vp: 7 },
+  { name: "사무실", vp: 6, opts: [6, 4, 2, 0, -2], note: "윗줄 건물 1채당 -2점" }, { name: "유기농 농장", vp: 4 },
+  { name: "간이 우리", vp: 0 }, { name: "돼지 축사", vp: 0, opts: [0, 4], note: "돼지 13마리 이상이면 4점" },
+  { name: "목장", vp: 2 }, { name: "임시 사육장", vp: 1 }, { name: "갈대집", vp: 0 }, { name: "제재소", vp: 4 },
+  { name: "하인의 집", vp: 0 }, { name: "작은 확장터", vp: 0, opts: [0, 2, 4, 6, 8], note: "인접 건물 1채당 2점" },
+  { name: "집사의 사무실", vp: -3 }, { name: "돌 조각소", vp: 0, opts: [0, 2, 4, 6, 8, 10, 12, 14], note: "올려둔 돌 1개당 2점" },
+  { name: "말 사육장", vp: 3 }, { name: "목재 상점", vp: 1 }, { name: "거래소", vp: 1 }, { name: "멧돼지 우리", vp: 0 },
+  { name: "목공소", vp: 1 }, { name: "작업장", vp: 2 },
 ];
-// 가축 추가 점수 표 (룰북 8쪽): [1점 시작, 2점 시작, 3점 시작] 마리 수
+const BASIC_KEYS = BLD.map((b, i) => b.basic ? i : -1).filter(i => i >= 0);
+const EXTRA_KEYS = BLD.map((b, i) => b.basic ? -1 : i).filter(i => i >= 0).sort((a, b) => BLD[a].name.localeCompare(BLD[b].name, "ko"));
+const STORE_KEY = BLD.findIndex(b => b.name === "저장고");
 const BONUS = { sheep: [8, 11, 13], pig: [7, 9, 11], cow: [6, 8, 10], horse: [5, 7, 9] };
 const ANIMALS = [["sheep", "양"], ["pig", "돼지"], ["cow", "소"], ["horse", "말"]];
-const STALL_VP = 1, STABLE_VP = 4;
+const STALL_VP = 1, STABLE_VP = 4, MAX_EXTRA = 8;
 
 const MODES = {
   easy:  { nm: "쉬움", ds: "플레이어가 항상 선. 봇은 점수 없음 (내 점수 갱신하기)" },
@@ -303,51 +291,42 @@ function add(goods, k, n) { goods[k] = (goods[k] || 0) + n; }
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function goodsText(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map(([k, n]) => `${G[k]} ${n}`).join(", "); }
-function vpText(b) { return b.opts ? `${b.opts[0] < b.opts[b.opts.length - 1] ? b.opts[0] + "~" + b.opts[b.opts.length - 1] : b.opts[b.opts.length - 1] + "~" + b.opts[0]}점` : `${b.vp}점`; }
-function randomPicks() { return shuffle(SPECIAL.map((_, i) => i)).slice(0, 4); }
+function vpText(b) { if (!b.opts) return `${b.vp}점`; const lo = Math.min(...b.opts), hi = Math.max(...b.opts); return `${lo}~${hi}점`; }
+function img(k) { return `img/tiles/${String(k).padStart(2, "0")}.jpg`; }
+function randomExtras(n, keep) { const pool = shuffle(EXTRA_KEYS.filter(k => !keep.includes(k))); return keep.concat(pool).slice(0, n); }
 function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
 function opt(v, cur, label) { return `<option value="${v}" ${String(v) === String(cur) ? "selected" : ""}>${label ?? v}</option>`; }
+function pct(b) { return `left:${b[0]}%;top:${b[1]}%;width:${b[2] - b[0]}%;height:${b[3] - b[1]}%`; }
+function tokens(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map(([k, n]) => `<span class="tk ${k}" title="${G[k]} ${n}">${n}</span>`).join(""); }
 
 // ---------- 상태 ----------
-const KEY = "acbs-automa-v2";
-let S = null;          // 게임 상태
-let history = [];      // 되돌리기 스냅샷
-let modal = null;      // 화면 전용 선택 창
-let botTimer = null;
-let load0 = null;
+const KEY = "acbs-automa-v3";
+let S = null, history = [], modal = null, botTimer = null, load0 = null;
 
 function freshSetup(prev) {
   const st = prev?.settings;
-  return {
-    phase: "setup",
-    settings: st && st.picks ? st : { mode: "normal", firstNormal: "player", picks: randomPicks(), extensions: 4, stalls: 4 },
-  };
+  return { phase: "setup", settings: st && st.extras ? st : { mode: "normal", firstNormal: "player", extras: randomExtras(4, []), extensions: 4, stalls: 4 } };
 }
-
 function save() { try { localStorage.setItem(KEY, JSON.stringify({ S, history: history.slice(-40) })); } catch (e) {} }
-function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY) || "null"); if (d && d.S) { S = d.S; history = d.history || []; return true; } } catch (e) {}
-  return false;
-}
+function load() { try { const d = JSON.parse(localStorage.getItem(KEY) || "null"); if (d && d.S) { S = d.S; history = d.history || []; return true; } } catch (e) {} return false; }
 function snapshot() { history.push(JSON.stringify(S)); if (history.length > 60) history.shift(); }
 function log(html) { S.log.unshift({ r: S.round, t: html }); }
 
 // ---------- 게임 흐름 ----------
 function startGame() {
   const st = S.settings;
+  const keys = BASIC_KEYS.concat(st.extras);
   S = {
-    phase: "play", settings: st, round: 0,
-    goods: {}, roundFences: 8,
+    phase: "play", settings: st, round: 0, goods: {}, roundFences: 8,
     extLeft: +st.extensions, stallsLeft: +st.stalls,
-    buildings: st.picks.map((k, i) => ({ no: 17 + i, key: k, name: SPECIAL[k].name, vp: SPECIAL[k].vp, owner: null })),
-    basic: BASIC.map(b => ({ name: b.name, owner: null })),
-    bot: { fences: 9, ext: 0, stalls: 0 },
-    me: { ext: 0, stalls: 0 },
+    buildings: keys.map((k, i) => ({ no: 17 + i, key: k, owner: null })),
+    bot: { fences: 9, ext: 0, stalls: 0 }, me: { ext: 0, stalls: 0 },
     placed: [], first: "player", lastBot: null, log: [], notice: null,
   };
   history = [];
   nextRound();
 }
+function bname(b) { return BLD[b.key].name; }
 
 function firstFor(round) {
   const m = S.settings.mode;
@@ -364,15 +343,11 @@ function nextRound() {
     const g = S.goods[sp.id] = S.goods[sp.id] || {};
     if (sp.acc) sp.acc(g);
     if (sp.id === 8 && S.roundFences > 0) { S.roundFences -= 1; add(g, "fence", 1); }
-    if (sp.animal) {
-      const empty = !Object.values(g).some(n => n > 0);
-      add(g, empty ? sp.animal[0] : sp.animal[1], 1);
-    }
+    if (sp.animal) add(g, Object.values(g).some(n => n > 0) ? sp.animal[1] : sp.animal[0], 1);
   }
   log(`<b>${S.round}라운드 시작</b> · 선: ${S.first === "player" ? "플레이어" : "봇"}`);
   if (S.settings.mode === "farm" && S.round === 8) {
-    const g = S.goods[8];
-    const lines = [];
+    const g = S.goods[8], lines = [];
     if ((g.fence || 0) > 0) { g.fence -= 1; S.bot.fences += 1; lines.push("농장 확장 칸의 경계선 1개"); }
     if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; lines.push("농장 확장판 1개"); }
     log(`팜마겟돈: 봇이 일꾼 없이 ${lines.join(", ") || "가져갈 것이 없음"}`);
@@ -382,20 +357,16 @@ function nextRound() {
 
 function whoseTurn() {
   if (S.placed.length >= 6) return null;
-  const second = S.first === "player" ? "bot" : "player";
-  return S.placed.length % 2 === 0 ? S.first : second;
+  return S.placed.length % 2 === 0 ? S.first : (S.first === "player" ? "bot" : "player");
 }
 function occupied(id) { return S.placed.filter(p => p.space === id); }
 function slotFree() { return occupied(14).length < 2; }
+function availBuildings() { return S.buildings.filter(b => !b.owner); }
 
-// 봇: 지금 놓을 수 있는 빈 칸 중 무작위 하나. 특수 건물 자리가 비어 있으면 남은 17–20번 건물 각각이 후보.
+// 봇: 지금 놓을 수 있는 모든 선택지 중 균등 무작위. 특수 건물 자리가 비어 있으면 남은 건물 하나하나가 선택지.
 function botCandidates() {
-  const c = [];
-  for (const sp of SPACES) if (sp.id !== 14 && occupied(sp.id).length === 0) c.push(sp.id);
-  if (slotFree()) {
-    const avail = S.buildings.filter(b => !b.owner).map(b => b.no);
-    if (avail.length) c.push(...avail); else c.push(14);
-  }
+  const c = SPACES.filter(sp => sp.id !== 14 && occupied(sp.id).length === 0).map(sp => sp.id);
+  if (slotFree()) { const a = availBuildings().map(b => b.no); c.push(...(a.length ? a : [14])); }
   return c;
 }
 
@@ -404,46 +375,38 @@ function botTurn() {
   const n = cand[Math.floor(Math.random() * cand.length)];
   const space = n >= 17 ? 14 : n;
   const g = S.goods[space] || {};
-  const taken = goodsText(g);
-  const gain = [];
+  const taken = goodsText(g), gain = [];
   if (space === 8) {
     if (g.fence) { S.bot.fences += g.fence; gain.push(`경계선 ${g.fence}`); }
     if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; gain.push("확장판 1"); }
-  } else if (space === 9 && S.stallsLeft > 0) {
-    S.stallsLeft -= 1; S.bot.stalls += 1; gain.push("축사 1");
-  }
-  let bName = null;
-  if (n >= 17) { const b = S.buildings[n - 17]; b.owner = "bot"; bName = b.name; gain.push(b.name); }
+  } else if (space === 9 && S.stallsLeft > 0) { S.stallsLeft -= 1; S.bot.stalls += 1; gain.push("축사 1"); }
+  let bk = null;
+  if (n >= 17) { const b = S.buildings[n - 17]; b.owner = "bot"; bk = b.key; gain.push(bname(b)); }
   S.goods[space] = {};
-  S.placed.push({ space, who: "bot", n, bld: bName });
-  S.lastBot = { n, space, pool: cand.length, cleared: space === 8 ? "" : taken, gain: gain.join(", ") };
-  log(`봇 <b>${n}. ${n >= 17 ? bName : SP[space].nm}</b> <span class="num">(${cand.length}곳 중)</span>` +
+  S.placed.push({ space, who: "bot", bk });
+  S.lastBot = { n, space, bk, pool: cand.length, cleared: space === 8 ? "" : taken, gain: gain.join(", ") };
+  log(`봇 <b>${n >= 17 ? BLD[bk].name + " (건물)" : SP[space].nm}</b> <span class="num">(${cand.length}곳 중)</span>` +
       (taken && space !== 8 ? ` · 공동 창고로: ${taken}` : "") + (gain.length ? ` · 수집: ${gain.join(", ")}` : ""));
 }
 
-function playerPlace(id, opt) {
+function playerPlace(id, o) {
   snapshot();
   const g = S.goods[id] || {};
-  const taken = goodsText(g);
-  let extra = "";
-  if (id === 8 && opt?.ext && S.extLeft > 0) { S.extLeft -= 1; S.me.ext += 1; extra = " · 확장판 1개 연결"; }
-  if (id === 9 && opt?.stall && S.stallsLeft > 0) { S.stallsLeft -= 1; S.me.stalls += 1; extra = " · 축사 1개 지음"; }
-  let bName = null;
-  if (id === 14 && opt?.bld != null) { const b = S.buildings[opt.bld]; b.owner = "player"; bName = b.name; }
-  if (id === 14 && opt?.basic != null) { const b = S.basic[opt.basic]; b.owner = "player"; bName = b.name; }
-  if (bName) extra = ` · ${bName} 건설`;
+  const taken = goodsText(id === 7 ? SP[7].fixed : g);
+  let extra = "", bk = null;
+  if (id === 8 && o?.ext && S.extLeft > 0) { S.extLeft -= 1; S.me.ext += 1; extra = " · 확장판 연결"; }
+  if (id === 9 && o?.stall && S.stallsLeft > 0) { S.stallsLeft -= 1; S.me.stalls += 1; extra = " · 축사 1개"; }
+  if (id === 14 && o?.bi != null) { const b = S.buildings[o.bi]; b.owner = "player"; bk = b.key; extra = ` · ${bname(b)} 건설`; }
   S.goods[id] = {};
-  S.placed.push({ space: id, who: "player", bld: bName });
-  log(`플레이어 <b>${id}. ${SP[id].nm}</b>${taken ? ` · 가져감: ${taken}` : ""}${extra}`);
+  S.placed.push({ space: id, who: "player", bk });
+  log(`플레이어 <b>${SP[id].nm}</b>${taken ? ` · 가져감: ${taken}` : ""}${extra}`);
   modal = null;
   save(); render(); scheduleBot();
 }
 
 function scheduleBot() {
   clearTimeout(botTimer);
-  if (S.phase === "play" && !S.notice && whoseTurn() === "bot") {
-    botTimer = setTimeout(() => { botTurn(); save(); render(); scheduleBot(); }, 650);
-  }
+  if (S.phase === "play" && !S.notice && whoseTurn() === "bot") botTimer = setTimeout(() => { botTurn(); save(); render(); scheduleBot(); }, 650);
 }
 
 function endRound() {
@@ -455,67 +418,46 @@ function endRound() {
   if ((g.fence || 0) >= need) {
     const n = g.fence; S.bot.fences += n; g.fence = 0;
     const lines = [`농장 확장 칸의 경계선 ${n}개`];
-    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; lines.push("농장 확장판 1개"); }
-    else lines.push("남은 확장판이 없어 경계선만 가져갑니다");
+    if (S.extLeft > 0) { S.extLeft -= 1; S.bot.ext += 1; lines.push("농장 확장판 1개"); } else lines.push("남은 확장판이 없어 경계선만 가져갑니다");
     log(`라운드 종료: 봇이 ${lines.join(", ")} 가져감`);
-    S.notice = { title: "봇이 경계선을 가져갑니다", lead: `${MODES[m].nm} 규칙: 라운드가 끝날 때 농장 확장 칸에 경계선이 ${need}개 이상 남았습니다.`,
-      lines, foot: "게임판에서 상자로 치운 뒤 다음 라운드를 시작하세요.", next: true };
+    S.notice = { title: "봇이 경계선을 가져갑니다", lead: `${MODES[m].nm} 규칙: 라운드가 끝날 때 농장 확장 칸에 경계선이 ${need}개 이상 남았습니다.`, lines, foot: "게임판에서 상자로 치운 뒤 다음 라운드를 시작하세요.", next: true };
     save(); render(); return;
   }
   proceedRound();
 }
 function proceedRound() {
-  if (S.round >= 8) { S.phase = "end"; S.ps = initScore(); }
-  else nextRound();
+  if (S.round >= 8) { S.phase = "end"; S.ps = initScore(); } else nextRound();
   save(); render(); scheduleBot();
 }
-function confirmNotice() {
-  const nx = S.notice?.next;
-  S.notice = null;
-  if (nx) proceedRound(); else { save(); render(); scheduleBot(); }
-}
-
-function undo() {
-  if (!history.length) return;
-  clearTimeout(botTimer);
-  S = JSON.parse(history.pop());
-  modal = null;
-  save(); render(); scheduleBot();
-}
+function confirmNotice() { const nx = S.notice?.next; S.notice = null; if (nx) proceedRound(); else { save(); render(); scheduleBot(); } }
+function undo() { if (!history.length) return; clearTimeout(botTimer); S = JSON.parse(history.pop()); modal = null; save(); render(); scheduleBot(); }
 
 // ---------- 점수 ----------
 function botScore() {
   const m = S.settings.mode;
   if (m === "easy" || m === "normal") return null;
-  const per = m === "farm" ? 3 : 2;
-  const stallEach = m === "farm" ? STABLE_VP : STALL_VP;
-  const bld = S.buildings.filter(b => b.owner === "bot").reduce((a, b) => a + b.vp, 0);
-  const p = { bld, stalls: S.bot.stalls * stallEach, fences: S.bot.fences * per, ext: S.bot.ext * per, per, stallEach };
+  const per = m === "farm" ? 3 : 2, stallEach = m === "farm" ? STABLE_VP : STALL_VP;
+  const mine = S.buildings.filter(b => b.owner === "bot");
+  const p = { names: mine.map(bname), bld: mine.reduce((a, b) => a + BLD[b.key].vp, 0), stalls: S.bot.stalls * stallEach, fences: S.bot.fences * per, ext: S.bot.ext * per, per, stallEach };
   p.total = p.bld + p.stalls + p.fences + p.ext;
   return p;
 }
 function animalBonus(type, n) {
   if (n <= 3) return -3;
   const [a, b, c] = BONUS[type];
-  if (n < a) return 0; if (n < b) return 1; if (n < c) return 2;
-  return 3 + (n - c);
+  return n < a ? 0 : n < b ? 1 : n < c ? 2 : 3 + (n - c);
 }
 function initScore() {
-  return {
-    sheep: 0, pig: 0, cow: 0, horse: 0, extFull: 0,
-    stalls: S.me.stalls, stables: 0, res: 0,
-    basic: S.basic.map(b => b.owner === "player" ? 1 : 0),
-    bvp: Object.fromEntries(S.buildings.map((b, i) => [i, SPECIAL[b.key].opts ? SPECIAL[b.key].opts[0] : b.vp])),
-    extra: 0,
-  };
+  // bv: 건물별 점수 (null = 짓지 않음)
+  const bv = {};
+  S.buildings.forEach((b, i) => { if (b.owner === "player") bv[i] = BLD[b.key].opts ? BLD[b.key].opts[0] : BLD[b.key].vp; });
+  return { sheep: 0, pig: 0, cow: 0, horse: 0, extFull: 0, stalls: S.me.stalls, stables: 0, res: 0, bv, extra: 0 };
 }
 function playerScore() {
-  const ps = S.ps;
-  const r = { animals: 0, bonus: 0, ext: ps.extFull * 4, bld: 0, rows: {} };
+  const ps = S.ps, r = { animals: 0, bonus: 0, ext: ps.extFull * 4, bld: 0, rows: {} };
   for (const [k] of ANIMALS) { r.animals += +ps[k]; r.rows[k] = animalBonus(k, +ps[k]); r.bonus += r.rows[k]; }
-  r.bld += ps.stalls * STALL_VP + ps.stables * STABLE_VP;
-  BASIC.forEach((b, i) => { if (ps.basic[i]) r.bld += b.name === "저장고" ? ps.res * 0.5 : b.vp; });
-  S.buildings.forEach((b, i) => { if (b.owner === "player") r.bld += +ps.bvp[i]; });
+  r.bld = ps.stalls * STALL_VP + ps.stables * STABLE_VP;
+  S.buildings.forEach((b, i) => { if (ps.bv[i] != null) r.bld += b.key === STORE_KEY ? ps.res * 0.5 : +ps.bv[i]; });
   r.extra = +ps.extra;
   r.total = r.animals + r.bonus + r.ext + r.bld + r.extra;
   return r;
@@ -523,59 +465,61 @@ function playerScore() {
 
 // ---------- 렌더 ----------
 const app = document.getElementById("app");
-
 function header(extra) {
   return `<header class="top"><div><h1>크고 작은 생물들 솔로 봇</h1>
     <p class="sub">아그리콜라: 크고 작은 생물들 빅박스 · 1인 플레이용 오토마 (Sam Carpenter 솔로 변형 v1.1)</p></div>
     <div class="top-actions">${extra || ""}</div></header>`;
 }
 
-function buildingOptions(cur, others) {
-  return SPECIAL.map((b, i) => `<option value="${i}" ${i === cur ? "selected" : ""} ${others.includes(i) ? "disabled" : ""}>${esc(b.name)} · ${vpText(b)}</option>`).join("");
-}
-
 function renderSetup() {
   const st = S.settings;
+  const n = st.extras.length;
   app.innerHTML = header(load0 ? `<button id="resume">저장된 게임 이어하기</button>` : "") + `
   <div class="setup">
     <section class="panel"><h2>난이도</h2>
       <div class="modes">${Object.entries(MODES).map(([k, m]) => `
         <label class="mode"><input type="radio" name="mode" id="mode-${k}" value="${k}" ${st.mode === k ? "checked" : ""}>
         <b>${m.nm}</b><span>${m.ds}</span></label>`).join("")}</div>
-      <label class="field" ${st.mode === "normal" ? "" : "hidden"} id="firstWrap"><span class="label">보통 · 1라운드 선 플레이어</span>
+      <label class="field" ${st.mode === "normal" ? "" : "hidden"}><span class="label">보통 · 1라운드 선 플레이어</span>
         <select id="firstNormal">${opt("player", st.firstNormal, "플레이어")}${opt("bot", st.firstNormal, "봇")}</select></label>
-    </section>
-    <section class="panel"><h2>특수 건물 4개 (17–20번)</h2>
-      <p class="sub" style="font-size:13px;margin:0">이번 게임에 깔아둔 특수 건물을 고르세요. 점수는 룰북 기준으로 자동 입력됩니다.</p>
-      ${st.picks.map((k, i) => {
-        const b = SPECIAL[k];
-        return `<div class="bld-row"><span class="num">${17 + i}</span>
-        <select id="pick-${i}" aria-label="${17 + i}번 특수 건물">${buildingOptions(k, st.picks.filter((_, j) => j !== i))}</select>
-        <span class="vp num">${b.vp}점</span></div>${b.note ? `<div class="bld-note">${esc(b.note)} · 봇은 ${b.vp}점으로 계산</div>` : ""}`;
-      }).join("")}
-      <button id="randomPicks">무작위 4개 고르기</button>
       <h3>공급 수량</h3>
       <div class="row">
         <label class="field"><span class="label">농장 확장판</span><select id="extensions">${range(0, 6).map(v => opt(v, st.extensions)).join("")}</select></label>
         <label class="field"><span class="label">축사/외양간 타일</span><select id="stalls">${range(0, 6).map(v => opt(v, st.stalls)).join("")}</select></label>
       </div>
+    </section>
+    <section class="panel"><h2>특수 건물</h2>
+      <span class="label">기본 특수 건물 · 항상 포함 (17–20번)</span>
+      <div class="basicrow">${BASIC_KEYS.map(k => `<img src="${img(k)}" alt="${esc(BLD[k].name)} ${vpText(BLD[k])}" loading="lazy">`).join("")}</div>
+      <label class="field"><span class="label">추가 특수 건물 수</span>
+        <select id="nExtra">${range(0, MAX_EXTRA).map(v => opt(v, n, `${v}개`)).join("")}</select></label>
+      ${st.extras.map((k, i) => {
+        const b = BLD[k], others = st.extras.filter((_, j) => j !== i);
+        return `<div class="pick"><span class="num">${21 + i}</span><img src="${img(k)}" alt="">
+          <select id="pick-${i}" aria-label="${21 + i}번 추가 특수 건물">${EXTRA_KEYS.map(e => `<option value="${e}" ${e === k ? "selected" : ""} ${others.includes(e) ? "disabled" : ""}>${esc(BLD[e].name)} · ${vpText(BLD[e])}</option>`).join("")}</select></div>
+          ${b.note ? `<div class="pick-note">${esc(b.note)} · 봇은 ${b.vp}점으로 계산</div>` : ""}`;
+      }).join("")}
+      ${n ? `<button id="randomPicks">추가 건물 무작위로 다시 고르기</button>` : ""}
       <button class="primary" id="start">게임 시작</button>
-      <p class="sub" style="font-size:13px;margin:0">준비: 봇 몫으로 경계선 9개를 상자에 넣고, 남은 경계선 8개는 라운드 표시용으로 둡니다.</p>
+      <p class="sub small" style="margin:0">준비: 봇 몫으로 경계선 9개를 상자에 넣고, 남은 경계선 8개는 라운드 표시용으로 둡니다.</p>
     </section>
   </div>` + rulesHTML() + `<div class="dock"><div class="dock-in"><div class="dock-msg"><div class="t">
-    <b>${MODES[st.mode].nm}</b><div>${st.picks.map(k => esc(SPECIAL[k].name)).join(" · ")}</div></div></div>
+    <b>${MODES[st.mode].nm} · 건물 ${4 + n}개</b><div>${st.extras.map(k => esc(BLD[k].name)).join(" · ") || "기본 건물만"}</div></div></div>
     <div class="dock-btns"><button class="primary" data-act="start">게임 시작</button></div></div></div>`;
 
-  const sync = () => {
+  const sync = (e) => {
     st.mode = document.querySelector('input[name=mode]:checked').value;
     st.firstNormal = document.getElementById("firstNormal").value;
     st.extensions = +document.getElementById("extensions").value;
     st.stalls = +document.getElementById("stalls").value;
-    st.picks = st.picks.map((_, i) => +document.getElementById("pick-" + i).value);
+    st.extras = st.extras.map((_, i) => +document.getElementById("pick-" + i).value);
+    const want = +document.getElementById("nExtra").value;
+    if (want !== st.extras.length) st.extras = want < st.extras.length ? st.extras.slice(0, want) : randomExtras(want, st.extras);
     save(); renderSetup();
+    if (e?.target?.id) document.getElementById(e.target.id)?.focus();
   };
   app.querySelectorAll("input,select").forEach(el => el.addEventListener("change", sync));
-  document.getElementById("randomPicks").onclick = () => { st.picks = randomPicks(); save(); renderSetup(); };
+  const rp = document.getElementById("randomPicks"); if (rp) rp.onclick = () => { st.extras = randomExtras(st.extras.length, []); save(); renderSetup(); };
   const go = () => { startGame(); save(); render(); scheduleBot(); };
   document.getElementById("start").onclick = go;
   app.querySelector('[data-act="start"]').onclick = go;
@@ -583,42 +527,56 @@ function renderSetup() {
   if (r) r.onclick = () => { S = load0.S; history = load0.history || []; load0 = null; render(); scheduleBot(); };
 }
 
-function spaceHTML(sp, myTurn) {
-  const occ = occupied(sp.id);
-  const g = S.goods[sp.id] || {};
-  const chips = Object.entries(g).filter(([, n]) => n > 0).map(([k, n]) => `<span class="chip ${k}">${G[k]} ${n}</span>`).join("");
-  const can = myTurn && playerCan(sp.id);
-  const last = S.lastBot && S.lastBot.space === sp.id && whoseTurn() !== "bot" ? " lastbot" : "";
-  let body;
-  if (sp.wide) {
-    body = `<div class="slots">${[0, 1].map(i => {
-      const p = occ[i];
-      if (!p) return `<div class="slot">빈 자리</div>`;
-      return `<div class="slot full"><span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>${esc(p.bld || "건물 없음")}</div>`;
-    }).join("")}</div>`;
-  } else body = `<div class="goods">${chips}</div>`;
-  const meeples = sp.wide ? "" : `<div class="occ">${occ.map(p => `<span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>`).join("")}</div>`;
-  const label = `${sp.id}. ${sp.nm}${chips ? " · " + goodsText(g) : ""}${occ.length ? " · 사용 중" : ""}`;
-  return `<div class="space${sp.wide ? " wide" : ""}${can ? " click" : ""}${occ.length && !sp.wide ? " taken" : ""}${last}"
-    ${can ? `role="button" tabindex="0" data-sp="${sp.id}"` : ""} aria-label="${esc(label)}">
-    <div><span class="no">${sp.id}</span> <span class="nm"><span class="lg">${sp.nm}</span><span class="sh">${sp.sh}</span></span><div class="ds">${sp.ds}</div></div>
-    ${meeples}${body}</div>`;
+function boardHTML(myTurn) {
+  const lb = S.lastBot && whoseTurn() !== "bot" ? S.lastBot : null;
+  let h = "";
+  for (const sp of SPACES) {
+    if (sp.boxes) {
+      const occ = occupied(14);
+      sp.boxes.forEach((b, i) => {
+        const p = occ[i];
+        const can = myTurn && !p && i === occ.length && availBuildings().length;
+        const last = lb && lb.space === 14 && i === occ.length - 1 && p?.who === "bot";
+        h += `<div class="spot${p ? " taken" : ""}${can ? " click" : ""}${last ? " lastbot" : ""}" style="${pct(b)}"
+          ${can ? `role="button" tabindex="0" data-sp="14" aria-label="특수 건물 짓기"` : `aria-label="특수 건물 짓기 ${i + 1}번째 자리${p ? " · 사용 중" : ""}"`}>
+          ${p ? `<span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>` : ""}</div>`;
+      });
+      continue;
+    }
+    const p = occupied(sp.id)[0];
+    const g = S.goods[sp.id];
+    const can = myTurn && !p;
+    const label = `${sp.nm}${goodsText(g) ? " · " + goodsText(g) : ""}${p ? " · 사용 중" : ""}`;
+    h += `<div class="spot${sp.half ? " half" + (sp.half === "r" ? " r" : "") : ""}${p ? " taken" : ""}${can ? " click" : ""}${lb && lb.space === sp.id ? " lastbot" : ""}" style="${pct(sp.box)}"
+      ${can ? `role="button" tabindex="0" data-sp="${sp.id}"` : ""} aria-label="${esc(label)}">
+      ${p ? "" : `<span class="tks">${tokens(g)}</span>`}
+      ${p ? `<span class="meeple ${p.who === "bot" ? "b" : "p"}">${p.who === "bot" ? "봇" : "나"}</span>` : ""}</div>`;
+  }
+  return `<div class="board" role="group" aria-label="게임판">${h}</div>`;
 }
 
-function playerCan(id) {
-  if (id === 14) return slotFree();
-  return occupied(id).length === 0;
+function tilesHTML(myTurn) {
+  const canBuild = myTurn && slotFree();
+  const lb = S.lastBot && whoseTurn() !== "bot" ? S.lastBot : null;
+  return `<div class="tiles">${S.buildings.map((b, i) => {
+    const can = canBuild && !b.owner;
+    return `<div class="tile${b.owner ? " own-" + b.owner : ""}${can ? " click" : ""}${lb && lb.bk === b.key ? " lastbot" : ""}"
+      ${can ? `role="button" tabindex="0" data-bi="${i}"` : ""} title="${esc(bname(b))} · ${vpText(BLD[b.key])}">
+      <img src="${img(b.key)}" alt="${esc(bname(b))}" loading="lazy"><span class="no">${b.no}</span>
+      ${b.owner ? `<span class="own"><span>${b.owner === "bot" ? "봇" : "나"}</span></span>` : ""}</div>`;
+  }).join("")}</div>`;
 }
+
+function lastBotName(lb) { return lb.bk != null ? `${BLD[lb.bk].name} (특수 건물)` : SP[lb.space].nm; }
 
 function renderPlay() {
   const turn = whoseTurn();
   const myTurn = turn === "player" && !S.notice;
   const pLeft = 3 - S.placed.filter(p => p.who === "player").length;
   const bLeft = 3 - S.placed.filter(p => p.who === "bot").length;
-  const pips = Array.from({ length: 8 }, (_, i) => `<span class="pip ${i + 1 < S.round ? "done" : i + 1 === S.round ? "now" : ""}"></span>`).join("");
-  const turnTxt = turn === "player" ? "내 차례 · 칸을 고르세요" : turn === "bot" ? "봇이 고르는 중…" : "일하기 단계 끝";
-  const sc = botScore();
-  const lb = S.lastBot;
+  const pips = range(1, 8).map(i => `<span class="pip ${i < S.round ? "done" : i === S.round ? "now" : ""}"></span>`).join("");
+  const turnTxt = turn === "player" ? "내 차례 · 칸이나 건물을 누르세요" : turn === "bot" ? "봇이 고르는 중…" : "일하기 단계 끝";
+  const sc = botScore(), lb = S.lastBot;
 
   app.innerHTML = header(`<button class="m-hide" data-act="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button id="newgame">새 게임</button>`) + `
   <div class="status">
@@ -628,20 +586,14 @@ function renderPlay() {
     <span class="turn">${turnTxt}</span>
   </div>
   <div class="play">
-    <div>
-      <div class="boardwrap"><div class="board">${SPACES.map(sp => spaceHTML(sp, myTurn)).join("")}</div>
-        <p class="legend">노란 칸을 눌러 일꾼을 놓습니다. 칸에 쌓인 물건은 직접 가져가고, 봇이 고른 칸의 물건은 공동 창고로 돌려놓으세요.</p></div>
-      <div class="buildings">${S.buildings.map(b => `<div class="bld ${b.owner || ""}">
-        <span class="label num">${b.no}</span><span class="nm">${esc(b.name)}</span>
-        <span class="own">${vpText(SPECIAL[b.key])} · ${b.owner === "bot" ? "봇이 수집" : b.owner === "player" ? "내가 건설" : "남아 있음"}</span></div>`).join("")}</div>
-    </div>
+    <div>${boardHTML(myTurn)}${tilesHTML(myTurn)}</div>
     <aside class="side">
       ${turn === null ? `<div class="callout endcall"><h3>집에 돌아오기 · 번식</h3>
         <p class="sub" style="margin:0">일꾼 6개를 모두 놓았습니다. 내 농장의 가축을 번식시킨 뒤 라운드를 끝내세요.</p>
         <button class="primary" data-act="endround">${S.round >= 8 ? "게임 종료 · 점수 계산" : `${S.round}라운드 끝내기`}</button></div>` : ""}
       ${lb ? `<div class="callout botmove"><span class="label">봇의 마지막 행동</span>
-        <div class="botline"><span class="die">${lb.n}</span><div><b>${lb.n >= 17 ? esc(S.buildings[lb.n - 17].name) + " (특수 건물 짓기)" : SP[lb.space].nm}</b>
-        <div class="sub" style="font-size:13px;margin:0">빈 칸 ${lb.pool}곳 중 무작위</div></div></div>
+        <div class="botline">${lb.bk != null ? `<img src="${img(lb.bk)}" alt="" style="width:56px;border-radius:6px">` : `<span class="big">${lb.n}</span>`}
+        <div><b>${esc(lastBotName(lb))}</b><div class="sub small" style="margin:0">선택지 ${lb.pool}곳 중 무작위</div></div></div>
         ${lb.cleared ? `<div>공동 창고로 되돌리기: <b>${lb.cleared}</b></div>` : ""}
         ${lb.gain ? `<div>봇이 수집: <b>${esc(lb.gain)}</b></div>` : ""}</div>` : ""}
       <div class="callout"><h3>봇 현황</h3>
@@ -658,11 +610,12 @@ function renderPlay() {
     </aside>
   </div>` + rulesHTML() + dockHTML(turn, lb) + modalHTML();
 
-  app.querySelectorAll("[data-sp]").forEach(el => {
-    const go = () => onSpace(+el.dataset.sp);
-    el.onclick = go;
-    el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+  const bindTap = (sel, fn) => app.querySelectorAll(sel).forEach(el => {
+    el.onclick = () => fn(el);
+    el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(el); } };
   });
+  bindTap("[data-sp]", el => { modal = { type: "space", id: +el.dataset.sp }; render(); });
+  bindTap("[data-bi]", el => { modal = { type: "space", id: 14, bi: +el.dataset.bi }; render(); });
   app.querySelectorAll('[data-act="undo"]').forEach(b => b.onclick = undo);
   app.querySelectorAll('[data-act="endround"]').forEach(b => b.onclick = endRound);
   document.getElementById("newgame").onclick = () => { modal = { type: "confirmNew" }; render(); };
@@ -670,24 +623,50 @@ function renderPlay() {
 }
 
 function dockHTML(turn, lb) {
-  let msg;
   const pill = turn === "player" ? `<span class="pill">내 차례</span>` : turn === "bot" ? `<span class="pill bot">봇 차례</span>` : "";
+  let msg;
   if (turn === null) msg = `<div class="t"><b>번식 단계</b><div>가축을 번식시킨 뒤 진행</div></div>`;
-  else if (turn === "bot") msg = `<span class="die">…</span><div class="t">${pill}<div>봇이 칸을 고르는 중</div></div>`;
-  else if (lb) msg = `<span class="die">${lb.n}</span><div class="t">${pill}
-      <div><b>${lb.n >= 17 ? esc(S.buildings[lb.n - 17].name) : SP[lb.space].nm}</b></div>
-      <div>${lb.cleared ? `창고로: ${lb.cleared}` : lb.gain ? `봇 수집: ${esc(lb.gain)}` : `빈 칸 ${lb.pool}곳 중 무작위`}</div></div>`;
-  else msg = `<div class="t">${pill}<div>게임판 칸을 눌러 일꾼을 놓으세요</div></div>`;
+  else if (turn === "bot") msg = `<span class="big">…</span><div class="t">${pill}<div>봇이 칸을 고르는 중</div></div>`;
+  else if (lb) msg = `${lb.bk != null ? `<img src="${img(lb.bk)}" alt="" style="width:44px;border-radius:5px">` : `<span class="big">${lb.n}</span>`}<div class="t">${pill}
+      <div><b>봇: ${esc(lastBotName(lb))}</b></div>
+      <div>${lb.cleared ? `창고로: ${lb.cleared}` : lb.gain ? `봇 수집: ${esc(lb.gain)}` : `선택지 ${lb.pool}곳 중 무작위`}</div></div>`;
+  else msg = `<div class="t">${pill}<div>게임판 칸이나 건물을 누르세요</div></div>`;
   const end = turn === null ? `<button class="primary" data-act="endround">${S.round >= 8 ? "점수 계산" : `${S.round}R 끝내기`}</button>` : "";
   return `<div class="dock"><div class="dock-in"><div class="dock-msg">${msg}</div>
     <div class="dock-btns"><button data-act="undo" ${history.length ? "" : "disabled"}>되돌리기</button>${end}</div></div></div>`;
 }
 
-function onSpace(id) {
-  if (id === 14) { modal = { type: "bld" }; render(); return; }
-  if (id === 8) { modal = { type: "ext" }; render(); return; }
-  if (id === 9) { modal = { type: "stall" }; render(); return; }
-  playerPlace(id);
+// 칸을 눌렀을 때: 얻을 것을 보여주고 확인받기
+function spaceModal(id, bi) {
+  const sp = SP[id];
+  const g = id === 7 ? sp.fixed : (S.goods[id] || {});
+  const items = Object.entries(g).filter(([, n]) => n > 0);
+  const gain = items.length ? `<div class="gain">${items.map(([k, n]) => `<span class="g"><span class="tk ${k}">${n}</span>${G[k]} ${n}${["sheep", "pig", "cow", "horse"].includes(k) ? "마리" : "개"}</span>`).join("")}</div>` : "";
+  const animalNote = sp.animal ? `<p class="sub small" style="margin:0">농장에 둘 자리가 없는 가축은 공동 창고로 돌려놓습니다.</p>` : "";
+  let body = "", btns = "";
+  if (id === 14) {
+    const avail = S.buildings.map((b, i) => ({ b, i })).filter(x => !x.b.owner);
+    if (bi != null) {
+      const b = S.buildings[bi];
+      body = `<div class="mhead"><img src="${img(b.key)}" alt=""><div><b>${esc(bname(b))}</b><div class="sub small">${vpText(BLD[b.key])}${BLD[b.key].note ? " · " + esc(BLD[b.key].note) : ""}</div></div></div>
+        <p class="sub small" style="margin:0">특수 건물 짓기 칸에 일꾼을 놓고 이 건물을 짓습니다. 건설 비용은 타일을 보고 직접 내세요.</p>`;
+      btns = `<button class="primary" data-go="bi" data-v="${bi}">건설 확인</button>`;
+    } else {
+      body = `<p class="sub small" style="margin:0">지을 건물을 고르세요. 건설 비용은 타일을 보고 직접 내세요.</p>`;
+      btns = avail.map(({ b, i }) => `<button class="bopt" data-go="bi" data-v="${i}"><img src="${img(b.key)}" alt=""><span><b>${esc(bname(b))}</b><br><span class="sub small">${vpText(BLD[b.key])}</span></span></button>`).join("");
+    }
+  } else if (id === 8) {
+    body = `${gain || `<p style="margin:0">가져올 경계선이 없습니다.</p>`}<p class="sub small" style="margin:0">남은 농장 확장판: ${S.extLeft}개</p>`;
+    btns = (S.extLeft > 0 ? `<button class="primary" data-go="ext">가져오고 확장판 1개 연결</button>` : "") + `<button data-go="ok">${S.extLeft > 0 ? "경계선만 가져오기" : "확인"}</button>`;
+  } else if (id === 9) {
+    body = `<p style="margin:0">돌 3개와 갈대 1개를 내고 축사 1개를 짓습니다.</p><p class="sub small" style="margin:0">남은 축사 타일: ${S.stallsLeft}개</p>`;
+    btns = (S.stallsLeft > 0 ? `<button class="primary" data-go="stall">축사 짓기 확인</button>` : "") + `<button data-go="ok">타일 없이 칸만 사용</button>`;
+  } else {
+    body = gain ? `${gain}${animalNote}` : `<p style="margin:0">가져올 자원은 없습니다.</p>`;
+    if (sp.ds) body += `<p class="sub small" style="margin:0">${sp.ds}</p>`;
+    btns = `<button class="primary" data-go="ok">${gain ? "가져오기 확인" : "확인"}</button>`;
+  }
+  return `<span class="label">${gain && id !== 8 ? "획득" : "행동"}</span><h3>${sp.nm}</h3>${body}<div class="choice">${btns}</div>`;
 }
 
 function modalHTML() {
@@ -696,49 +675,31 @@ function modalHTML() {
     const btn = n.next ? (S.round >= 8 ? "확인 · 점수 계산" : `확인 · ${S.round + 1}라운드 시작`) : "확인";
     return `<div class="modal" id="modal"><div class="box notice" role="alertdialog" aria-modal="true" aria-labelledby="ntitle">
       <span class="label" style="color:var(--bot)">봇 알림</span><h3 id="ntitle">${n.title}</h3>
-      <p class="sub" style="margin:0">${n.lead}</p>
-      <ul class="takes">${n.lines.map(l => `<li>${l}</li>`).join("")}</ul>
+      <p class="sub" style="margin:0">${n.lead}</p><ul class="takes">${n.lines.map(l => `<li>${l}</li>`).join("")}</ul>
       <p style="margin:0">${n.foot}</p>
-      <button class="primary" id="nok">${btn}</button>
-      <button id="nundo" ${history.length ? "" : "disabled"}>되돌리기</button></div></div>`;
+      <button class="primary" id="nok">${btn}</button><button id="nundo" ${history.length ? "" : "disabled"}>되돌리기</button></div></div>`;
   }
   if (!modal) return "";
   let inner = "";
-  if (modal.type === "bld") {
-    const sp = S.buildings.map((b, i) => b.owner ? "" : `<button data-bld="${i}">${b.no}. ${esc(b.name)} <span class="sub">(${vpText(SPECIAL[b.key])})</span></button>`).join("");
-    const bs = S.basic.map((b, i) => b.owner ? "" : `<button data-basic="${i}">${esc(b.name)} <span class="sub">(기본 건물)</span></button>`).join("");
-    inner = `<h3>어떤 건물을 짓나요?</h3><div class="choice">${sp}${bs}<button data-basic="-1">목록에 없음 · 자리만 사용</button></div>`;
-  } else if (modal.type === "ext") {
-    const g = S.goods[8] || {};
-    inner = `<h3>농장 확장</h3><p class="sub" style="margin:0">경계선 ${g.fence || 0}개를 가져갑니다. 남은 확장판: ${S.extLeft}개</p>
-      <div class="choice">${S.extLeft > 0 ? `<button data-opt="ext">경계선 + 확장판 1개 연결</button>` : ""}<button data-opt="none">경계선만 가져가기</button></div>`;
-  } else if (modal.type === "stall") {
-    inner = `<h3>축사 짓기</h3><p class="sub" style="margin:0">남은 축사 타일: ${S.stallsLeft}개</p>
-      <div class="choice">${S.stallsLeft > 0 ? `<button data-opt="stall">축사 1개 짓기</button>` : ""}<button data-opt="none">타일 없이 칸만 사용</button></div>`;
-  } else if (modal.type === "confirmNew") {
-    inner = `<h3>새 게임을 시작할까요?</h3><p class="sub" style="margin:0">진행 중인 게임은 지워집니다.</p>
-      <div class="choice"><button class="primary" data-opt="new">새 게임 설정으로</button></div>`;
-  }
+  if (modal.type === "space") inner = spaceModal(modal.id, modal.bi);
+  else if (modal.type === "confirmNew") inner = `<h3>새 게임을 시작할까요?</h3><p class="sub" style="margin:0">진행 중인 게임은 지워집니다.</p>
+      <div class="choice"><button class="primary" data-go="new">새 게임 설정으로</button></div>`;
   return `<div class="modal" id="modal"><div class="box" role="dialog" aria-modal="true">${inner}<button id="mclose">취소</button></div></div>`;
 }
 function bindModal() {
   const m = document.getElementById("modal"); if (!m) return;
   const ok = document.getElementById("nok");
-  if (ok) {
-    ok.onclick = confirmNotice;
-    document.getElementById("nundo").onclick = undo;
-    ok.focus();
-    return;
-  }
+  if (ok) { ok.onclick = confirmNotice; document.getElementById("nundo").onclick = undo; ok.focus(); return; }
   document.getElementById("mclose").onclick = () => { modal = null; render(); };
   m.onclick = e => { if (e.target === m) { modal = null; render(); } };
-  m.querySelectorAll("[data-bld]").forEach(b => b.onclick = () => playerPlace(14, { bld: +b.dataset.bld }));
-  m.querySelectorAll("[data-basic]").forEach(b => b.onclick = () => playerPlace(14, +b.dataset.basic >= 0 ? { basic: +b.dataset.basic } : {}));
-  m.querySelectorAll("[data-opt]").forEach(b => b.onclick = () => {
-    const o = b.dataset.opt;
-    if (o === "new") { clearTimeout(botTimer); S = freshSetup(S); history = []; modal = null; save(); render(); return; }
-    if (modal.type === "ext") playerPlace(8, { ext: o === "ext" });
-    else if (modal.type === "stall") playerPlace(9, { stall: o === "stall" });
+  m.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+    const go = b.dataset.go;
+    if (go === "new") { clearTimeout(botTimer); S = freshSetup(S); history = []; modal = null; save(); render(); return; }
+    const id = modal.id;
+    if (go === "bi") playerPlace(14, { bi: +b.dataset.v });
+    else if (go === "ext") playerPlace(id, { ext: true });
+    else if (go === "stall") playerPlace(id, { stall: true });
+    else playerPlace(id, {});
   });
   const first = m.querySelector(".choice button"); if (first) first.focus();
 }
@@ -751,44 +712,41 @@ function scoreRow(id, label, options, cur, pts, hint) {
 function fmt(n) { return (n > 0 ? "+" : "") + (Number.isInteger(n) ? n : n.toFixed(1)); }
 
 function renderEnd() {
-  const sc = botScore();
-  const ps = S.ps;
-  const r = playerScore();
-  let verdict = sc ? (r.total > sc.total ? "승리!" : r.total === sc.total ? "동점" : "봇의 승리") : "";
+  const sc = botScore(), ps = S.ps, r = playerScore();
+  const verdict = sc ? (r.total > sc.total ? "승리!" : r.total === sc.total ? "동점" : "봇의 승리") : "";
   let best = null; try { best = +localStorage.getItem(KEY + "-best-" + S.settings.mode) || null; } catch (e) {}
-  const yesNo = [[0, "없음"], [1, "지음"]];
-  const mine = S.buildings.map((b, i) => ({ b, i })).filter(x => x.b.owner === "player");
+  const notBot = S.buildings.map((b, i) => ({ b, i })).filter(x => x.b.owner !== "bot");
 
   app.innerHTML = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
   <div class="endsum">
-    <div><span class="label">내 점수</span><div class="big num">${fmt(r.total).replace("+", "")}</div></div>
-    ${sc ? `<div><span class="label">봇 점수</span><div class="big num">${sc.total}</div></div><div class="verdict">${verdict}</div>`
-         : `<div><span class="label">이 난이도 최고 점수</span><div class="big num">${best ?? "-"}</div></div>`}
+    <div><span class="label">내 점수</span><div class="n">${fmt(r.total).replace("+", "")}</div></div>
+    ${sc ? `<div><span class="label">봇 점수</span><div class="n">${sc.total}</div></div><div class="verdict">${verdict}</div>`
+         : `<div><span class="label">이 난이도 최고 점수</span><div class="n">${best ?? "-"}</div></div>`}
   </div>
   <div class="endgrid">
     <section class="panel"><h2>내 점수 계산</h2>
-      <p class="sub" style="margin:0;font-size:13px">농장을 보고 고르면 점수가 바로 계산됩니다.</p>
+      <p class="sub small" style="margin:0">농장을 보고 고르면 점수가 바로 계산됩니다.</p>
       <h3>가축</h3>
-      ${ANIMALS.map(([k, nm]) => scoreRow("ps-" + k, `${nm}`, range(0, 40), ps[k], +ps[k] + r.rows[k], `기본 ${ps[k]} · 추가 ${fmt(r.rows[k])}`)).join("")}
+      ${ANIMALS.map(([k, nm]) => scoreRow("ps-" + k, nm, range(0, 40), ps[k], +ps[k] + r.rows[k], `기본 ${ps[k]} · 추가 ${fmt(r.rows[k])}`)).join("")}
       <h3>농장 확장</h3>
       ${scoreRow("ps-extFull", "농장 칸 3칸을 모두 쓴 확장판", range(0, 6), ps.extFull, r.ext, `가져온 확장판 ${S.me.ext}개 · 1개당 4점`)}
       <h3>건물</h3>
       ${scoreRow("ps-stalls", "축사", range(0, 6), ps.stalls, ps.stalls * STALL_VP, "1개당 1점")}
       ${scoreRow("ps-stables", "외양간", range(0, 6), ps.stables, ps.stables * STABLE_VP, "1개당 4점")}
-      ${BASIC.map((b, i) => scoreRow("ps-basic-" + i, b.name, yesNo, ps.basic[i], ps.basic[i] ? (b.name === "저장고" ? ps.res * 0.5 : b.vp) : 0, b.note || `${b.vp}점`)).join("")}
-      ${ps.basic[3] ? scoreRow("ps-res", "저장고 · 남은 건축 자원", range(0, 60), ps.res, ps.res * 0.5, "나무+돌+갈대 합계") : ""}
-      ${mine.length ? mine.map(({ b, i }) => {
-        const d = SPECIAL[b.key];
-        return d.opts ? scoreRow("ps-bvp-" + i, b.name, d.opts.map(v => [v, `${v}점`]), ps.bvp[i], +ps.bvp[i], d.note)
-                      : `<div class="srow"><span class="sl">${esc(b.name)}<small>특수 건물</small></span><span></span><span class="sp num">${fmt(b.vp)}</span></div>`;
-      }).join("") : `<p class="sub" style="margin:0;font-size:13px">이번 게임에 지은 특수 건물(17–20번)이 없습니다.</p>`}
+      ${notBot.map(({ b, i }) => {
+        const d = BLD[b.key], cur = ps.bv[i] == null ? "" : ps.bv[i];
+        const opts = [["", "없음"]].concat(d.opts ? d.opts.map(v => [v, `${v}점`]) : [[d.vp, "지음"]]);
+        const pts = ps.bv[i] == null ? 0 : b.key === STORE_KEY ? ps.res * 0.5 : +ps.bv[i];
+        return scoreRow("ps-bv-" + i, esc(d.name), opts, cur, pts, d.note || `${d.vp}점`);
+      }).join("")}
+      ${ps.bv[S.buildings.findIndex(b => b.key === STORE_KEY)] != null ? scoreRow("ps-res", "저장고 · 남은 건축 자원", range(0, 60), ps.res, ps.res * 0.5, "나무+돌+갈대 합계") : ""}
       ${scoreRow("ps-extra", "기타 조정", range(-10, 20), ps.extra, r.extra, "위에서 다루지 않은 점수")}
       <div class="srow total"><span class="sl">합계</span><span></span><span class="sp num">${fmt(r.total).replace("+", "")}</span></div>
     </section>
     <div class="side">
       <section class="panel"><h2>봇 최종 점수 · ${MODES[S.settings.mode].nm}</h2>
         ${sc ? `<div class="stats">
-          <span>특수 건물 (${S.buildings.filter(b => b.owner === "bot").map(b => esc(b.name)).join(", ") || "없음"})</span><span class="v">${sc.bld}</span>
+          <span>특수 건물 (${sc.names.map(esc).join(", ") || "없음"})</span><span class="v">${sc.bld}</span>
           <span>축사 ${S.bot.stalls}개 × ${sc.stallEach}</span><span class="v">${sc.stalls}</span>
           <span>경계선 ${S.bot.fences}개 × ${sc.per}</span><span class="v">${sc.fences}</span>
           <span>확장판 ${S.bot.ext}개 × ${sc.per}</span><span class="v">${sc.ext}</span>
@@ -802,13 +760,11 @@ function renderEnd() {
 
   app.querySelectorAll("select[id^=ps-]").forEach(el => el.onchange = () => {
     const k = el.id.slice(3);
-    if (k.startsWith("basic-")) ps.basic[+k.slice(6)] = +el.value;
-    else if (k.startsWith("bvp-")) ps.bvp[+k.slice(4)] = +el.value;
-    else ps[k] = +el.value;
+    if (k.startsWith("bv-")) ps.bv[+k.slice(3)] = el.value === "" ? null : +el.value; else ps[k] = +el.value;
     const t = playerScore().total;
     try { const kk = KEY + "-best-" + S.settings.mode; if (t > (+localStorage.getItem(kk) || -99)) localStorage.setItem(kk, t); } catch (e) {}
     save(); renderEnd();
-    const again = document.getElementById(el.id); if (again) again.focus();
+    document.getElementById(el.id)?.focus();
   });
   document.getElementById("undo").onclick = undo;
   document.getElementById("newgame").onclick = () => { S = freshSetup(S); history = []; save(); render(); };
@@ -816,31 +772,27 @@ function renderEnd() {
 }
 
 function rulesHTML() {
-  return `<section class="rules"><details><summary>솔로 변형 규칙 요약과 칸 번호</summary><div class="cols">
-    <div><h3>칸 번호 (왼쪽 위 → 오른쪽, 다음 줄)</h3><ol>${SPACES.map(s => `<li>${s.nm}</li>`).join("")}
-      <li value="17">17–20: 준비한 특수 건물 4개 (봇은 특수 건물 짓기 칸에 일꾼을 놓고 해당 건물을 수집)</li></ol></div>
+  return `<section class="rules"><details><summary>솔로 변형 규칙 요약</summary><div class="cols">
     <div><h3>봇 규칙</h3><ul>
       <li>봇은 농장판이 없고 건물·울타리를 짓지 않습니다. 칸을 막고, 그 칸에 쌓인 자원·가축을 공동 창고로 돌려놓습니다.</li>
-      <li>봇은 지금 비어 있는 칸 중 하나를 무작위로 고릅니다. 특수 건물 짓기 자리가 비어 있으면 남은 17–20번 건물 하나하나가 후보입니다.</li>
-      <li>농장 확장 칸에서는 경계선과 확장판 1개를 수집합니다 (게임에서 제거).</li>
-      <li>축사 짓기 칸에서는 축사 타일 1개를 수집합니다.</li>
-      <li>각자 일꾼 3개, 차례를 번갈아 놓고 8라운드를 진행합니다.</li>
-      <li>봇 점수에서 변동 점수 건물은 봇에게 농장이 없다고 보고 계산합니다 (저택 7점, 사무실 6점, 조건부 건물 0점).</li></ul></div>
+      <li>봇은 지금 고를 수 있는 선택지 중 하나를 무작위로 고릅니다. 빈 행동 칸 하나하나, 그리고 특수 건물 짓기 자리가 비어 있으면 남은 건물 하나하나가 선택지입니다.</li>
+      <li>봇이 건물을 고르면 특수 건물 짓기 칸에 일꾼을 놓고 그 건물을 수집합니다 (게임에서 제거).</li>
+      <li>농장 확장 칸에서는 경계선과 확장판 1개를, 축사 짓기 칸에서는 축사 타일 1개를 수집합니다.</li>
+      <li>각자 일꾼 3개, 차례를 번갈아 놓고 8라운드를 진행합니다.</li></ul></div>
+    <div><h3>건물과 점수</h3><ul>
+      <li>기본 특수 건물 4개(나무골조 집, 저장고, 가축 보호소, 개방형 외양간)는 항상 포함되고, 추가 특수 건물을 0–8개 더 고릅니다.</li>
+      <li>봇 점수에서 변동 점수 건물은 봇에게 농장이 없다고 보고 계산합니다 (저택 7점, 사무실 6점, 조건부 건물과 저장고 0점).</li>
+      <li>축사 1점, 외양간 4점 (룰북 4쪽).</li></ul>
+      <p class="sub small">게임판과 건물 이미지는 한국어판 룰북에서 가져왔습니다.</p></div>
   </div></details></section>`;
 }
 
-function render() {
-  if (S.phase === "setup") renderSetup();
-  else if (S.phase === "play") renderPlay();
-  else renderEnd();
-}
+function render() { if (S.phase === "setup") renderSetup(); else if (S.phase === "play") renderPlay(); else renderEnd(); }
 
-// ---------- 시작 ----------
 function start(hot) {
-  if (hot && hot.S && hot.S.settings?.picks) { S = hot.S; history = hot.history || []; }
-  else if (load()) {
-    if (S.phase !== "setup") { load0 = { S, history }; S = freshSetup(S); history = []; }
-  } else S = freshSetup(null);
+  if (hot && hot.S && hot.S.settings?.extras) { S = hot.S; history = hot.history || []; }
+  else if (load()) { if (S.phase !== "setup") { load0 = { S, history }; S = freshSetup(S); history = []; } }
+  else S = freshSetup(null);
   render(); scheduleBot();
 }
 window.claude?.hot?.snapshot?.(() => ({ S, history }));
