@@ -147,6 +147,8 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 html:has(.modal), html:has(.modal) body { overflow: hidden; }
 .modal .box { overscroll-behavior: contain; background: var(--surface); color: var(--fg); border-radius: 14px; padding: 18px; width: min(460px, 100%); display: grid; gap: 12px; max-height: 88vh; overflow: auto; }
 .box.notice { border-top: 5px solid var(--bot); }
+.box.notice.mine { border-top-color: var(--meadow); }
+.box.notice.mine .takes { font-weight: 500; display: grid; gap: 4px; }
 .gain { display: flex; flex-wrap: wrap; gap: 8px; }
 .gain .g { display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; border-radius: 99px; background: color-mix(in srgb, var(--meadow) 10%, var(--surface)); font-weight: 700; }
 .gain .tk { font-size: 15px; box-shadow: none; background: #fff; }
@@ -155,6 +157,10 @@ html:has(.modal), html:has(.modal) body { overflow: hidden; }
 .choice .bopt { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center; padding: 6px 10px 6px 6px; }
 .choice .bopt img { width: 48px; height: 48px; border-radius: 4px; }
 .takes { margin: 0; padding-left: 20px; font-weight: 700; }
+.note { margin: 0; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--meadow) 12%, var(--surface)); font-size: 13px; line-height: 1.5; }
+.note img { height: 1.3em; width: auto; display: inline; vertical-align: -.3em; }
+.note.warn { background: color-mix(in srgb, var(--bot) 14%, var(--surface)); }
+.choice button:disabled { opacity: .45; }
 .mhead { display: flex; gap: 12px; align-items: center; }
 .mhead img { width: 88px; height: 88px; border-radius: 6px; flex: none; }
 .desc { margin: 0; line-height: 1.65; max-width: 60ch; }
@@ -443,6 +449,41 @@ function startGame() {
   nextRound();
 }
 function bname(b) { return BLD[b.key].name; }
+// 내가 지은 건물인지 (건물 효과 처리용)
+function mine(name) { return S.buildings.some(b => b.owner === "player" && BLD[b.key].name === name); }
+function myWorkers() { return S.placed.filter(p => p.who === "player" && !p.butler).length; }
+// 증축된 오두막: 1라운드 내 두 번째 차례에만
+function buildBlock(key) {
+  if (BLD[key].name === "증축된 오두막" && !(S.round === 1 && myWorkers() === 1 && whoseTurn() === "player"))
+    return "증축된 오두막은 1라운드의 내 두 번째 차례에만 지을 수 있습니다.";
+  return "";
+}
+// 집사의 사무실: 일꾼을 모두 놓은 뒤 빈 행동 칸 하나를 더 사용
+function butlerReady() { return S.phase === "play" && whoseTurn() === null && mine("집사의 사무실") && !S.butlerUsed && !S.notice; }
+function useStall(src) {
+  if (S.stallsLeft <= 0) return false;
+  S.stallsLeft -= 1; S.me.stalls += 1; log(`플레이어 ${src}: 축사 타일 1개 사용`); return true;
+}
+// 목재 상점: 맨 위 행동 칸 네 곳이 모두 사용되면 알림 (라운드당 한 번)
+function checkWoodShop() {
+  if (S.woodShopDone || S.notice || !mine("목재 상점") || ![1, 2, 3, 4].every(id => occupied(id).length)) return;
+  S.woodShopDone = true;
+  log("목재 상점: 맨 위 행동 칸 네 곳이 모두 사용됨 · 나무 3개");
+  S.notice = { tag: "내 건물", title: "목재 상점", lead: "맨 위 행동 칸 네 곳이 모두 사용되었습니다.", lines: ["공동 창고에서 나무 3개를 가져와 개인 창고에 놓으세요."], foot: "", next: false };
+}
+// 라운드 끝(번식 직전) 확인할 내 건물 기능
+function roundChecklist() {
+  const L = [], has = n => mine(n);
+  if (has("가내 수공업소")) L.push({ t: `가내 수공업소: 돌 3개와 갈대 1개로 축사 1채를 지을 수 있습니다${has("작업장") ? " (작업장: 경계선 2개도 무료로 지음)" : ""}.`, act: "cottage" });
+  if (has("가구 제작소")) L.push({ t: "가구 제작소: 나무 2개로 여물통 1개를 지을 수 있습니다." });
+  if (has("거래소")) L.push({ t: "거래소: 서로 다른 건축 자원 2개로 원하는 가축 1마리를 가져올 수 있습니다." });
+  if (has("임시 사육장")) L.push({ t: "임시 사육장: 번식 전에 이곳의 가축을 모두 다른 곳으로 옮기세요. 비운 뒤 새끼를 키울 수 있습니다." });
+  if (has("분만실")) L.push({ t: "분만실: 1마리만 있는 가축 종류도 새끼 1마리를 가져옵니다." });
+  if (has("목장")) L.push({ t: "목장: 말이 번식하면 경계선 1개를 무료로 지을 수 있습니다." });
+  if (has("돌 조각소")) L.push({ t: "돌 조각소: 개인 창고의 돌 1개를 돌 조각소에 올릴 수 있습니다 (1개당 2점)." });
+  if (has("품종 연구소") && S.round === 8) L.push({ t: "품종 연구소: 8라운드 번식이 끝나면 한 번 더 번식합니다." });
+  return L;
+}
 
 function firstFor(round) {
   const m = S.settings.mode;
@@ -453,7 +494,7 @@ function firstFor(round) {
 }
 
 function nextRound() {
-  S.round += 1; S.placed = []; S.lastBot = null;
+  S.round += 1; S.placed = []; S.lastBot = null; S.butlerUsed = false; S.woodShopDone = false;
   S.first = firstFor(S.round);
   for (const sp of SPACES) {
     const g = S.goods[sp.id] = S.goods[sp.id] || {};
@@ -507,25 +548,43 @@ function botTurn() {
 
 function playerPlace(id, o) {
   snapshot();
+  const butler = whoseTurn() === null;
   const g = S.goods[id] || {};
   const taken = goodsText(id === 7 ? SP[7].fixed : g);
   let extra = "", bk = null;
-  if (id === 8 && o?.ext && S.extLeft > 0) { S.extLeft -= 1; S.me.ext += 1; extra = " · 확장판 연결"; }
+  if (id === 8 && o?.ext && S.extLeft > 0 && !mine("구석진 집")) { S.extLeft -= 1; S.me.ext += 1; extra = " · 확장판 연결"; }
   if (id === 9 && o?.stall && S.stallsLeft > 0) { S.stallsLeft -= 1; S.me.stalls += 1; extra = " · 축사 1개"; }
-  if (id === 14 && o?.bi != null) { const b = S.buildings[o.bi]; b.owner = "player"; bk = b.key; extra = ` · ${bname(b)} 건설`; }
+  if (id === 7 && o?.interior && (S.goods[2]?.wood || 0) > 0) { S.goods[2].wood -= 1; extra = " · 인테리어 용품점: 나무 3개 칸에서 나무 1개"; }
+  if (id === 14 && o?.bi != null) {
+    const b = S.buildings[o.bi], nm = bname(b);
+    b.owner = "player"; bk = b.key; extra = ` · ${nm} 건설`;
+    if (nm === "전원주택" && S.extLeft > 0 && !mine("구석진 집")) { S.extLeft -= 1; S.me.ext += 1; extra += " (확장판 1개 연결)"; }
+    if (nm === "개방형 외양간" || nm === "자재 할인점") { S.stallsLeft += 1; if (S.me.stalls > 0) S.me.stalls -= 1; extra += " (개조한 타일 1개 공동 창고로)"; }
+  }
   S.goods[id] = {};
-  S.placed.push({ space: id, who: "player", bk });
-  log(`플레이어 <b>${SP[id].nm}</b>${taken ? ` · 가져감: ${taken}` : ""}${extra}`);
+  S.placed.push({ space: id, who: "player", bk, butler });
+  if (butler) S.butlerUsed = true;
+  log(`${butler ? "집사의 사무실" : "플레이어"} <b>${SP[id].nm}</b>${taken ? ` · 가져감: ${taken}` : ""}${extra}`);
   modal = null;
+  checkWoodShop();
   save(); render(); scheduleBot();
 }
 
 function scheduleBot() {
   clearTimeout(botTimer);
-  if (view === "solo" && S.phase === "play" && !S.notice && whoseTurn() === "bot") botTimer = setTimeout(() => { botTurn(); save(); render(); scheduleBot(); }, 650);
+  if (view === "solo" && S.phase === "play" && !S.notice && whoseTurn() === "bot") botTimer = setTimeout(() => { botTurn(); checkWoodShop(); save(); render(); scheduleBot(); }, 650);
 }
 
-function endRound() {
+function endRound(afterCheck) {
+  if (!afterCheck) {
+    const L = roundChecklist();
+    if (L.length) {
+      snapshot();
+      S.notice = { tag: "내 건물", title: "번식 직전 확인", lead: "내 건물 중 이번 라운드 끝에 쓸 수 있는 기능입니다.", lines: L.map(l => l.t),
+        acts: L.filter(l => l.act).map(l => ({ a: l.act, done: false })), foot: "필요한 것을 처리하고 가축을 번식시킨 뒤 계속하세요.", next: "end" };
+      save(); render(); return;
+    }
+  }
   snapshot();
   const m = S.settings.mode;
   const need = m === "normal" ? 2 : (m === "hard" || m === "farm") ? 1 : Infinity;
@@ -545,7 +604,12 @@ function proceedRound() {
   if (S.round >= 8) { S.phase = "end"; S.ps = initScore(); } else nextRound();
   save(); render(); scheduleBot();
 }
-function confirmNotice() { const nx = S.notice?.next; S.notice = null; if (nx) proceedRound(); else { save(); render(); scheduleBot(); } }
+function confirmNotice() { const nx = S.notice?.next; S.notice = null; if (nx === "end") endRound(true); else if (nx) proceedRound(); else { save(); render(); scheduleBot(); } }
+function noticeAct(i) {
+  const a = S.notice?.acts?.[i]; if (!a || a.done) return;
+  if (a.a === "cottage" && useStall("가내 수공업소")) a.done = true;
+  save(); render();
+}
 function undo() { if (!history.length) return; clearTimeout(botTimer); S = JSON.parse(history.pop()); modal = null; save(); render(); scheduleBot(); }
 
 // ---------- 점수 ----------
@@ -692,8 +756,9 @@ function lastBotName(lb) { return lb.bk != null ? `${BLD[lb.bk].name} (특수 �
 
 function renderPlay() {
   const turn = whoseTurn();
-  const myTurn = turn === "player" && !S.notice;
-  const pLeft = 3 - S.placed.filter(p => p.who === "player").length;
+  const butler = butlerReady();
+  const myTurn = (turn === "player" && !S.notice) || butler;
+  const pLeft = 3 - myWorkers();
   const bLeft = 3 - S.placed.filter(p => p.who === "bot").length;
   const pips = range(1, 8).map(i => `<span class="pip ${i < S.round ? "done" : i === S.round ? "now" : ""}"></span>`).join("");
   const turnTxt = turn === "player" ? "내 차례 · 칸이나 건물을 누르세요" : turn === "bot" ? "봇이 고르는 중…" : "일하기 단계 끝";
@@ -710,6 +775,7 @@ function renderPlay() {
     <div>${boardHTML(myTurn)}${tilesHTML(myTurn)}</div>
     <aside class="side">
       ${turn === null ? `<div class="callout endcall"><h3>집에 돌아오기 · 번식</h3>
+        ${butler ? `<p class="note">집사의 사무실: 아무도 쓰지 않은 행동 칸 하나를 일꾼 없이 사용할 수 있습니다. 게임판에서 고르거나, 쓰지 않으려면 라운드를 끝내세요.</p>` : ""}
         <p class="sub" style="margin:0">일꾼 6개를 모두 놓았습니다. 내 농장의 가축을 번식시킨 뒤 라운드를 끝내세요.</p>
         <button class="primary" data-act="endround">${S.round >= 8 ? "게임 종료 · 점수 계산" : `${S.round}라운드 끝내기`}</button></div>` : ""}
       ${lb ? `<div class="callout botmove"><span class="label">봇의 마지막 행동</span>
@@ -717,6 +783,9 @@ function renderPlay() {
         <div><b>${esc(lastBotName(lb))}</b><div class="sub small" style="margin:0">선택지 ${lb.pool}곳 중 무작위</div></div></div>
         ${lb.cleared ? `<div>공동 창고로 되돌리기: <b>${lb.cleared}</b></div>` : ""}
         ${lb.gain ? `<div>봇이 수집: <b>${esc(lb.gain)}</b></div>` : ""}</div>` : ""}
+      ${mine("건설 회사") ? `<div class="callout"><h3>내 건물 기능</h3>
+        <p class="sub small" style="margin:0">건설 회사: 언제든 돌 2개를 내고 건물 밖 여물통 하나를 축사로 바꿀 수 있습니다.</p>
+        <button data-act="construct" ${S.stallsLeft > 0 ? "" : "disabled"}>${S.stallsLeft > 0 ? `여물통 → 축사 (남은 축사 타일 ${S.stallsLeft}개)` : "남은 축사 타일이 없습니다"}</button></div>` : ""}
       <div class="callout"><h3>봇 현황</h3>
         <div class="stats">
           <span>경계선 (시작 9개 포함)</span><span class="v">${S.bot.fences}</span>
@@ -739,7 +808,8 @@ function renderPlay() {
   bindTap("[data-bi]", el => { modal = { type: "space", id: 14, bi: +el.dataset.bi }; render(); });
   bindTap("[data-info]", el => { modal = { type: "info", key: +el.dataset.info }; render(); });
   app.querySelectorAll('[data-act="undo"]').forEach(b => b.onclick = undo);
-  app.querySelectorAll('[data-act="endround"]').forEach(b => b.onclick = endRound);
+  app.querySelectorAll('[data-act="endround"]').forEach(b => b.onclick = () => endRound());
+  app.querySelectorAll('[data-act="construct"]').forEach(b => b.onclick = () => { snapshot(); if (useStall("건설 회사")) { save(); render(); } });
   document.getElementById("newgame").onclick = () => { modal = { type: "confirmNew" }; render(); };
   bindHome();
   bindModal();
@@ -748,7 +818,8 @@ function renderPlay() {
 function dockHTML(turn, lb) {
   const pill = turn === "player" ? `<span class="pill">내 차례</span>` : turn === "bot" ? `<span class="pill bot">봇 차례</span>` : "";
   let msg;
-  if (turn === null) msg = `<div class="t"><b>번식 단계</b><div>가축을 번식시킨 뒤 진행</div></div>`;
+  if (turn === null && butlerReady()) msg = `<div class="t"><span class="pill">집사의 사무실</span><div>빈 칸 하나를 더 쓰거나 라운드를 끝내세요</div></div>`;
+  else if (turn === null) msg = `<div class="t"><b>번식 단계</b><div>가축을 번식시킨 뒤 진행</div></div>`;
   else if (turn === "bot") msg = `<span class="bdot">…</span><div class="t">${pill}<div>봇이 칸을 고르는 중</div></div>`;
   else if (lb) msg = `${lb.bk != null ? `<img src="${img(lb.bk)}" alt="" style="width:44px;border-radius:5px">` : `<span class="bdot">봇</span>`}<div class="t">${pill}
       <div><b>봇: ${esc(lastBotName(lb))}</b></div>
@@ -770,25 +841,45 @@ function spaceModal(id, bi) {
   if (id === 14) {
     const avail = S.buildings.map((b, i) => ({ b, i })).filter(x => !x.b.owner);
     if (bi != null) {
-      const b = S.buildings[bi];
-      body = infoHTML(b.key) + `<p class="sub small" style="margin:0">특수 건물 짓기 칸에 일꾼을 놓고 이 건물을 짓습니다. 비용은 직접 내세요.</p>`;
-      btns = `<button class="primary" data-go="bi" data-v="${bi}">건설 확인</button>`;
+      const b = S.buildings[bi], nm = bname(b), block = buildBlock(b.key);
+      const effect = {
+        "전원주택": mine("구석진 집") ? "구석진 집이 있어 확장판은 가져오지 않습니다 (소만 가져옴)." : S.extLeft > 0 ? `지으면 확장판 1개를 함께 연결합니다 (남은 확장판 ${S.extLeft}개 → ${S.extLeft - 1}개).` : "남은 확장판이 없어 소만 가져옵니다.",
+        "개방형 외양간": `내 축사 1개를 개조합니다. 그 축사 타일은 공동 창고로 돌아갑니다 (남은 축사 타일 ${S.stallsLeft}개 → ${S.stallsLeft + 1}개).`,
+        "자재 할인점": `내 외양간 1개를 개조합니다. 그 타일은 공동 창고로 돌아갑니다 (남은 축사 타일 ${S.stallsLeft}개 → ${S.stallsLeft + 1}개).`,
+      }[nm];
+      body = infoHTML(b.key) + (effect ? `<p class="note">${effect}</p>` : "") + (block ? `<p class="note warn">${block}</p>` : "") +
+        `<p class="sub small" style="margin:0">특수 건물 짓기 칸에 일꾼을 놓고 이 건물을 짓습니다. 비용은 직접 내세요.</p>`;
+      btns = block ? "" : `<button class="primary" data-go="bi" data-v="${bi}">건설 확인</button>`;
     } else {
       body = `<p class="sub small" style="margin:0">지을 건물을 고르세요. 건설 비용은 타일을 보고 직접 내세요.</p>`;
-      btns = avail.map(({ b, i }) => `<button class="bopt" data-go="pick" data-v="${i}"><img src="${img(b.key)}" alt=""><span><b>${esc(bname(b))}</b><br><span class="sub small">${esc(DESC[bname(b)]?.[0] || vpText(BLD[b.key]))}</span></span></button>`).join("");
+      btns = avail.map(({ b, i }) => `<button class="bopt" data-go="pick" data-v="${i}" ${buildBlock(b.key) ? "disabled" : ""}><img src="${img(b.key)}" alt=""><span><b>${esc(bname(b))}</b><br><span class="sub small">${esc(DESC[bname(b)]?.[0] || vpText(BLD[b.key]))}</span></span></button>`).join("");
     }
   } else if (id === 8) {
-    body = `${gain || `<p style="margin:0">가져올 경계선이 없습니다.</p>`}<p class="sub small" style="margin:0">남은 농장 확장판: ${S.extLeft}개</p>`;
-    btns = (S.extLeft > 0 ? `<button class="primary" data-go="ext">가져오고 확장판 1개 연결</button>` : "") + `<button data-go="ok">${S.extLeft > 0 ? "경계선만 가져오기" : "확인"}</button>`;
+    const corner = mine("구석진 집"), canExt = S.extLeft > 0 && !corner;
+    body = `${gain || `<p style="margin:0">가져올 경계선이 없습니다.</p>`}<p class="sub small" style="margin:0">남은 농장 확장판: ${S.extLeft}개</p>` +
+      (corner ? `<p class="note">구석진 집: 확장판을 더 연결할 수 없어 경계선만 가져옵니다.</p>` : "") +
+      (mine("목공소") ? `<p class="note">목공소: 가져온 경계선을 바로 무료로 지을 수 있습니다.</p>` : "") +
+      (canExt && mine("소 농장") ? `<p class="note">소 농장: 확장판을 연결하면 양·돼지·말 1마리를 소 1마리로 바꿀 수 있습니다.</p>` : "");
+    btns = (canExt ? `<button class="primary" data-go="ext">가져오고 확장판 1개 연결</button>` : "") + `<button ${canExt ? "" : 'class="primary" '}data-go="ok">${canExt ? "경계선만 가져오기" : "가져오기 확인"}</button>`;
   } else if (id === 9) {
-    body = `<p style="margin:0">돌 3개와 갈대 1개를 내고 축사 1개를 짓습니다.</p><p class="sub small" style="margin:0">남은 축사 타일: ${S.stallsLeft}개</p>`;
+    body = `<p style="margin:0">돌 3개와 갈대 1개를 내고 축사 1개를 짓습니다.</p><p class="sub small" style="margin:0">남은 축사 타일: ${S.stallsLeft}개</p>` +
+      (mine("작업장") ? `<p class="note">작업장: 개인 창고의 경계선 2개를 무료로 지을 수 있습니다.</p>` : "") +
+      (mine("헛간") ? `<p class="note">헛간: 헛간을 지은 뒤 첫 축사라면 바로 외양간으로 무료 개조할 수 있습니다.</p>` : "");
     btns = (S.stallsLeft > 0 ? `<button class="primary" data-go="stall">축사 짓기 확인</button>` : "") + `<button data-go="ok">타일 없이 칸만 사용</button>`;
   } else {
     body = gain ? `${gain}${animalNote}` : `<p style="margin:0">가져올 자원은 없습니다.</p>`;
     if (sp.ds) body += `<p class="sub small" style="margin:0">${sp.ds}</p>`;
-    btns = `<button class="primary" data-go="ok">${gain ? "가져오기 확인" : "확인"}</button>`;
+    const extraWood = id === 7 && mine("인테리어 용품점") ? (S.goods[2]?.wood || 0) : -1;
+    if (extraWood > 0) {
+      body += `<p class="note">인테리어 용품점: 나무 3개 칸에서 ${resIcon("wood")} 나무 1개를 더 가져올 수 있습니다 (그 칸 ${extraWood}개 → ${extraWood - 1}개).</p>`;
+      btns = `<button class="primary" data-go="interior">가져오기 + 나무 3개 칸에서 나무 1개</button><button data-go="ok">자원 시장만 가져오기</button>`;
+    } else {
+      if (extraWood === 0) body += `<p class="note">인테리어 용품점: 나무 3개 칸에 나무가 없어 추가로 가져올 수 없습니다.</p>`;
+      btns = `<button class="primary" data-go="ok">${gain ? "가져오기 확인" : "확인"}</button>`;
+    }
   }
-  return `<span class="label">${gain && id !== 8 ? "획득" : "행동"}</span><h3>${sp.nm}</h3>${body}<div class="choice">${btns}</div>`;
+  const bt = whoseTurn() === null ? `<p class="note">집사의 사무실: 일꾼을 놓지 않고 이 칸을 사용합니다.</p>` : "";
+  return `<span class="label">${gain && id !== 8 ? "획득" : "행동"}</span><h3>${sp.nm}</h3>${bt}${body}<div class="choice">${btns}</div>`;
 }
 
 function infoHTML(k) {
@@ -800,11 +891,13 @@ function infoHTML(k) {
 function modalHTML() {
   if (view === "solo" && S.notice) {
     const n = S.notice;
-    const btn = n.next ? (S.round >= 8 ? "확인 · 점수 계산" : `확인 · ${S.round + 1}라운드 시작`) : "확인";
-    return `<div class="modal" id="modal"><div class="box notice" role="alertdialog" aria-modal="true" aria-labelledby="ntitle">
-      <span class="label" style="color:var(--bot)">봇 알림</span><h3 id="ntitle">${n.title}</h3>
+    const btn = n.next === "end" ? "확인 · 계속" : n.next ? (S.round >= 8 ? "확인 · 점수 계산" : `확인 · ${S.round + 1}라운드 시작`) : "확인";
+    const mineTag = n.tag === "내 건물";
+    const acts = (n.acts || []).map((a, i) => a.a === "cottage" ? `<button data-nact="${i}" ${a.done || S.stallsLeft <= 0 ? "disabled" : ""}>${a.done ? "가내 수공업소: 축사 1채 지음 ✓" : S.stallsLeft <= 0 ? "남은 축사 타일이 없습니다" : `가내 수공업소로 축사 1채 짓기 (남은 타일 ${S.stallsLeft}개)`}</button>` : "").join("");
+    return `<div class="modal" id="modal"><div class="box notice${mineTag ? " mine" : ""}" role="alertdialog" aria-modal="true" aria-labelledby="ntitle">
+      <span class="label" style="color:var(${mineTag ? "--meadow" : "--bot"})">${n.tag || "봇 알림"}</span><h3 id="ntitle">${n.title}</h3>
       <p class="sub" style="margin:0">${n.lead}</p><ul class="takes">${n.lines.map(l => `<li>${l}</li>`).join("")}</ul>
-      <p style="margin:0">${n.foot}</p>
+      ${acts}${n.foot ? `<p style="margin:0">${n.foot}</p>` : ""}
       <button class="primary" id="nok">${btn}</button><button id="nundo" ${history.length ? "" : "disabled"}>되돌리기</button></div></div>`;
   }
   if (!modal) return "";
@@ -823,7 +916,7 @@ function bindModal() {
   const box = m.querySelector(".box");
   m.addEventListener("touchmove", e => { if (!box.contains(e.target) || box.scrollHeight <= box.clientHeight) e.preventDefault(); }, { passive: false });
   const ok = document.getElementById("nok");
-  if (ok) { ok.onclick = confirmNotice; document.getElementById("nundo").onclick = undo; ok.focus(); return; }
+  if (ok) { ok.onclick = confirmNotice; document.getElementById("nundo").onclick = undo; m.querySelectorAll("[data-nact]").forEach(b => b.onclick = () => noticeAct(+b.dataset.nact)); ok.focus(); return; }
   document.getElementById("mclose").onclick = () => { modal = null; render(); };
   m.onclick = e => { if (e.target === m) { modal = null; render(); } };
   m.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
@@ -835,6 +928,7 @@ function bindModal() {
     if (go === "bi") playerPlace(14, { bi: +b.dataset.v });
     else if (go === "ext") playerPlace(id, { ext: true });
     else if (go === "stall") playerPlace(id, { stall: true });
+    else if (go === "interior") playerPlace(id, { interior: true });
     else playerPlace(id, {});
   });
   const first = m.querySelector(".choice button"); if (first) first.focus();
