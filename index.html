@@ -172,6 +172,18 @@ html:has(.modal), html:has(.modal) body { overflow: hidden; }
 .srow .sl small { color: var(--muted); font-size: 12px; }
 .srow select { width: 100%; min-height: 40px; }
 .srow .sp { text-align: right; font-weight: 700; }
+.srow.b { grid-template-columns: minmax(0, 1fr) 4.6em 3em 1.9em; gap: 8px; }
+.srow.b .sl { display: flex; gap: 8px; align-items: center; }
+.srow .bn { display: grid; min-width: 0; }
+.sthumb { padding: 0; border: 0; background: none; flex: none; cursor: pointer; border-radius: 4px; }
+.sthumb img { width: 42px; height: 42px; border-radius: 4px; }
+.ic { height: 1.35em; width: auto; max-width: 2em; vertical-align: -.3em; margin-right: 4px; object-fit: contain; }
+.lbl { display: flex; align-items: center; gap: 4px; }
+.lbl .ic { height: 26px; max-width: 34px; }
+.star { color: var(--bot); }
+.rm { padding: 0; width: 1.9em; height: 1.9em; border-radius: 50%; font-size: 12px; color: var(--muted); }
+.sdiv { margin-top: 8px; padding-top: 8px; border-top: 2px solid var(--line); font-size: 12px; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+#addb { width: 100%; min-height: 40px; margin-top: 6px; }
 .srow.total { border-bottom: 0; border-top: 2px solid var(--fg); font-size: 18px; font-weight: 700; }
 .panel h3 { margin-top: 6px; }
 
@@ -257,28 +269,28 @@ const BOARD_TEXT = [
 const SP = Object.fromEntries(SPACES.map(s => [s.id, s]));
 
 // 룰북 9–12쪽 건물. 배열 순서 = img/tiles/NN.jpg 번호. basic: 기본 특수 건물(항상 포함).
-// vp = 봇 기준 점수, opts = 플레이어 점수 선택지(변동 점수일 때)
+// vp = 고정 점수. 조건부(*) 점수 건물은 COND 참고 (봇은 0점)
 const BLD = [
-  { name: "나무골조 집", vp: 5, basic: true }, { name: "저장고", vp: 0, basic: true, note: "건축 자원 1개당 0.5점" },
+  { name: "나무골조 집", vp: 5, basic: true }, { name: "저장고", vp: 0, basic: true },
   { name: "가축 상점", vp: 3 }, { name: "마을회관", vp: 2 }, { name: "헛간", vp: 0 }, { name: "품종 연구소", vp: 0 },
   { name: "가축 보호소", vp: 0, basic: true }, { name: "개방형 외양간", vp: 2, basic: true },
   { name: "건설 회사", vp: 2 }, { name: "마구간 딸린 집", vp: 3 }, { name: "목수 공방", vp: 1 }, { name: "소 농장", vp: 1 },
   { name: "소 시장", vp: 2 }, { name: "온실", vp: 1 }, { name: "구석진 집", vp: 4 }, { name: "증축된 오두막", vp: 4 },
-  { name: "전원주택", vp: 1 }, { name: "소 축사", vp: 0, opts: [0, 4], note: "소 11마리 이상이면 4점" },
+  { name: "전원주택", vp: 1 }, { name: "소 축사", vp: 0 },
   { name: "우유 농장", vp: 3 }, { name: "개집", vp: 0 }, { name: "오리 연못", vp: 1 },
-  { name: "대농장", vp: 0, opts: [0, 3], note: "특수 건물 5채 이상이면 3점" }, { name: "농장용품점", vp: 0 },
-  { name: "농업용 우물", vp: 0 }, { name: "사료 저장고", vp: 0, opts: [0, 3], note: "여물통 5개 이상이면 3점" },
+  { name: "대농장", vp: 0 }, { name: "농장용품점", vp: 0 },
+  { name: "농업용 우물", vp: 0 }, { name: "사료 저장고", vp: 0 },
   { name: "급식장", vp: 0 }, { name: "울타리 설치업소", vp: 0 }, { name: "분만실", vp: 0 }, { name: "바닥재 전문점", vp: 0 },
   { name: "먹이용 근대밭", vp: 0 }, { name: "건초 선반", vp: 0 }, { name: "건초더미", vp: 1 }, { name: "인테리어 용품점", vp: 1 },
   { name: "가내 수공업소", vp: 1 }, { name: "여관", vp: 4 }, { name: "가구 제작소", vp: 0 },
-  { name: "큰 확장터", vp: 0, opts: [0, 2, 4, 6, 8], note: "인접 건물 1채당 2점" },
-  { name: "통나무 집", vp: 0, opts: [0, 4], note: "개인 창고 나무 4개 이상이면 4점" },
-  { name: "저택", vp: 5, opts: [5, 3, 1, -1], note: "7점에서 아랫줄 건물 1채당 -2점 (오두막 포함)" }, { name: "자재 할인점", vp: 7 },
-  { name: "사무실", vp: 6, opts: [6, 4, 2, 0, -2], note: "윗줄 건물 1채당 -2점" }, { name: "유기농 농장", vp: 4 },
-  { name: "간이 우리", vp: 0 }, { name: "돼지 축사", vp: 0, opts: [0, 4], note: "돼지 13마리 이상이면 4점" },
+  { name: "큰 확장터", vp: 0 },
+  { name: "통나무 집", vp: 0 },
+  { name: "저택", vp: 0 }, { name: "자재 할인점", vp: 7 },
+  { name: "사무실", vp: 0 }, { name: "유기농 농장", vp: 4 },
+  { name: "간이 우리", vp: 0 }, { name: "돼지 축사", vp: 0 },
   { name: "목장", vp: 2 }, { name: "임시 사육장", vp: 1 }, { name: "갈대집", vp: 0 }, { name: "제재소", vp: 4 },
-  { name: "하인의 집", vp: 0 }, { name: "작은 확장터", vp: 0, opts: [0, 2, 4, 6, 8], note: "인접 건물 1채당 2점" },
-  { name: "집사의 사무실", vp: -3 }, { name: "돌 조각소", vp: 0, opts: [0, 2, 4, 6, 8, 10, 12, 14], note: "올려둔 돌 1개당 2점" },
+  { name: "하인의 집", vp: 0 }, { name: "작은 확장터", vp: 0 },
+  { name: "집사의 사무실", vp: -3 }, { name: "돌 조각소", vp: 0 },
   { name: "말 사육장", vp: 3 }, { name: "목재 상점", vp: 1 }, { name: "거래소", vp: 1 }, { name: "멧돼지 우리", vp: 0 },
   { name: "목공소", vp: 1 }, { name: "작업장", vp: 2 },
 ];
@@ -343,9 +355,23 @@ const DESC = {
   "목공소": ["비용: 나무 2개, 돌 2개; 점수: 1점", "목공소를 지은 뒤 앞으로 남은 게임 동안, 농장 확장 행동 칸이나 특수 건물의 기능으로 경계선을 새로 가져올 때마다, 즉시 그 경계선을 비용 없이 지을 수 있습니다. 목공소에서 같은 종류의 가축을 2마리까지 키울 수 있습니다."],
   "작업장": ["비용: 나무 2개, 돌 1개; 점수: 2점", "작업장을 지은 뒤 축사 짓기 행동 칸이나 가내 수공업소를 이용해 축사 짓기 행동을 할 때마다, 그러한 축사 짓기 행동당 한 번씩, 즉시 자신의 개인 창고에 있는 경계선 2개를 비용 없이 지을 수 있습니다. 작업장에서 가축을 1마리만 키울 수 있습니다."]
 };
+// * 점수 건물: 조건에 따라 점수가 달라짐. 봇은 0점, 플레이어는 조건을 골라 계산.
+// q = 조건, a..b = 선택 범위, f = 점수 계산, auto = 가축 수로 자동 계산, icons = 함께 보여줄 자원
+const COND = {
+  "저장고": { q: "개인 창고의 건축 자원 수", a: 0, b: 60, f: n => n * 0.5, icons: ["wood", "stone", "reed"] },
+  "소 축사": { auto: "cow", q: "소 11마리 이상이면 4점", f: n => n >= 11 ? 4 : 0 },
+  "돼지 축사": { auto: "pig", q: "돼지 13마리 이상이면 4점", f: n => n >= 13 ? 4 : 0 },
+  "대농장": { q: "농장의 특수 건물 수 (5채 이상 3점)", a: 0, b: 15, f: n => n >= 5 ? 3 : 0 },
+  "사료 저장고": { q: "농장의 여물통 수 (5개 이상 3점)", a: 0, b: 10, f: n => n >= 5 ? 3 : 0 },
+  "통나무 집": { q: "개인 창고의 나무 수 (4개 이상 4점)", a: 0, b: 30, f: n => n >= 4 ? 4 : 0, icons: ["wood"] },
+  "저택": { q: "아랫줄 건물 수 (오두막 포함, 7−2×수)", a: 1, b: 4, f: n => 7 - 2 * n },
+  "사무실": { q: "윗줄 건물 수 (6−2×수)", a: 0, b: 4, f: n => 6 - 2 * n },
+  "큰 확장터": { q: "인접한 건물 수 (1채당 2점)", a: 0, b: 4, f: n => 2 * n },
+  "작은 확장터": { q: "인접한 건물 수 (1채당 2점)", a: 0, b: 4, f: n => 2 * n },
+  "돌 조각소": { q: "올려둔 돌 수 (1개당 2점)", a: 0, b: 7, f: n => 2 * n, icons: ["stone"] },
+};
 const BASIC_KEYS = BLD.map((b, i) => b.basic ? i : -1).filter(i => i >= 0);
 const EXTRA_KEYS = BLD.map((b, i) => b.basic ? -1 : i).filter(i => i >= 0).sort((a, b) => BLD[a].name.localeCompare(BLD[b].name, "ko"));
-const STORE_KEY = BLD.findIndex(b => b.name === "저장고");
 const BONUS = { sheep: [8, 11, 13], pig: [7, 9, 11], cow: [6, 8, 10], horse: [5, 7, 9] };
 const ANIMALS = [["sheep", "양"], ["pig", "돼지"], ["cow", "소"], ["horse", "말"]];
 const STALL_VP = 1, STABLE_VP = 4, MAX_EXTRA = 8;
@@ -361,7 +387,7 @@ function add(goods, k, n) { goods[k] = (goods[k] || 0) + n; }
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function goodsText(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map(([k, n]) => `${G[k]} ${n}`).join(", "); }
-function vpText(b) { if (!b.opts) return `${b.vp}점`; const lo = Math.min(...b.opts), hi = Math.max(...b.opts); return `${lo}~${hi}점`; }
+function vpText(b) { return COND[b.name] ? (DESC[b.name]?.[0].split("점수: ")[1] || "조건부") + " *" : `${b.vp}점`; }
 function img(k) { return `img/tiles/${String(k).padStart(2, "0")}.jpg`; }
 function randomExtras(n, keep) { const pool = shuffle(EXTRA_KEYS.filter(k => !keep.includes(k))); return keep.concat(pool).slice(0, n); }
 function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
@@ -523,16 +549,20 @@ function animalBonus(type, n) {
   return n < a ? 0 : n < b ? 1 : n < c ? 2 : 3 + (n - c);
 }
 function initScore() {
-  // bv: 건물별 점수 (null = 짓지 않음)
-  const bv = {};
-  S.buildings.forEach((b, i) => { if (b.owner === "player") bv[i] = BLD[b.key].opts ? BLD[b.key].opts[0] : BLD[b.key].vp; });
-  return { sheep: 0, pig: 0, cow: 0, horse: 0, extFull: 0, stalls: S.me.stalls, stables: 0, res: 0, bv, extra: 0 };
+  // built: 내가 지은 건물(S.buildings 번호), cv: * 건물의 조건 값
+  const built = S.buildings.map((b, i) => b.owner === "player" ? i : -1).filter(i => i >= 0), cv = {};
+  built.forEach(i => { const c = COND[BLD[S.buildings[i].key].name]; if (c && !c.auto) cv[i] = c.a; });
+  return { sheep: 0, pig: 0, cow: 0, horse: 0, extFull: 0, stalls: S.me.stalls, stables: 0, built, cv, extra: 0 };
+}
+function bldPts(i) {
+  const d = BLD[S.buildings[i].key], c = COND[d.name], ps = S.ps;
+  return c ? c.f(+(c.auto ? ps[c.auto] : ps.cv[i] ?? c.a)) : d.vp;
 }
 function playerScore() {
   const ps = S.ps, r = { animals: 0, bonus: 0, ext: ps.extFull * 4, bld: 0, rows: {} };
   for (const [k] of ANIMALS) { r.animals += +ps[k]; r.rows[k] = animalBonus(k, +ps[k]); r.bonus += r.rows[k]; }
   r.bld = ps.stalls * STALL_VP + ps.stables * STABLE_VP;
-  S.buildings.forEach((b, i) => { if (ps.bv[i] != null) r.bld += b.key === STORE_KEY ? ps.res * 0.5 : +ps.bv[i]; });
+  ps.built.forEach(i => { r.bld += bldPts(i); });
   r.extra = +ps.extra;
   r.total = r.animals + r.bonus + r.ext + r.bld + r.extra;
   return r;
@@ -573,7 +603,7 @@ function renderSetup() {
         const b = BLD[k], others = st.extras.filter((_, j) => j !== i);
         return `<div class="pick"><button class="thumb" data-info="${k}" aria-label="${esc(b.name)} 설명 보기"><img src="${img(k)}" alt=""></button>
           <select id="pick-${i}" aria-label="추가 특수 건물 ${i + 1}">${EXTRA_KEYS.map(e => `<option value="${e}" ${e === k ? "selected" : ""} ${others.includes(e) ? "disabled" : ""}>${esc(BLD[e].name)} · ${vpText(BLD[e])}</option>`).join("")}</select></div>
-          ${b.note ? `<div class="pick-note">${esc(b.note)} · 봇은 ${b.vp}점으로 계산</div>` : ""}`;
+          ${COND[b.name] ? `<div class="pick-note">* 조건에 따라 점수가 달라지는 건물 · 봇은 0점</div>` : ""}`;
       }).join("")}
       ${n ? `<button id="randomPicks">추가 건물 무작위로 다시 고르기</button>` : ""}
       <button class="primary" id="start">게임 시작</button>
@@ -793,6 +823,23 @@ function bindModal() {
   const first = m.querySelector(".choice button"); if (first) first.focus();
 }
 
+function ic(k) { return `<img class="ic" src="img/res/${k}.png" alt="">`; }
+function bldRow(i) {
+  const ps = S.ps, b = S.buildings[i], d = BLD[b.key], c = COND[d.name];
+  let ctl = "<span></span>", hint = `${d.vp}점`;
+  if (c && !c.auto) {
+    ctl = `<select id="ps-cv-${i}" aria-label="${esc(d.name)}: ${esc(c.q)}">${range(c.a, c.b).map(v => opt(v, ps.cv[i] ?? c.a)).join("")}</select>`;
+    hint = `${(c.icons || []).map(ic).join("")}${esc(c.q)}`;
+  } else if (c) hint = `${esc(c.q)} · 지금 ${G[c.auto]} ${ps[c.auto]}마리`;
+  return `<div class="srow b"><span class="sl"><button class="sthumb" data-info="${b.key}" aria-label="${esc(d.name)} 설명 보기"><img src="${img(b.key)}" alt=""></button>
+    <span class="bn"><b>${esc(d.name)}${c ? ' <span class="star">*</span>' : ""}</b><small>${hint}</small></span></span>
+    ${ctl}<span class="sp num">${fmt(bldPts(i))}</span><button class="rm" data-rm="${i}" aria-label="${esc(d.name)} 목록에서 빼기">✕</button></div>`;
+}
+function bldSection(basic) {
+  const rows = S.ps.built.filter(i => !!BLD[S.buildings[i].key].basic === basic);
+  return `<div class="sdiv">${basic ? "기본 특수 건물" : "특수 건물"}</div>` +
+    (rows.length ? rows.map(bldRow).join("") : `<p class="sub small" style="margin:4px 0">지은 건물 없음</p>`);
+}
 function scoreRow(id, label, options, cur, pts, hint) {
   return `<label class="srow" for="${id}"><span class="sl">${label}${hint ? `<small>${hint}</small>` : ""}</span>
     <select id="${id}">${options.map(o => Array.isArray(o) ? opt(o[0], cur, o[1]) : opt(o, cur)).join("")}</select>
@@ -804,7 +851,7 @@ function renderEnd(patch) {
   const sc = botScore(), ps = S.ps, r = playerScore();
   const verdict = sc ? (r.total > sc.total ? "승리!" : r.total === sc.total ? "동점" : "봇의 승리") : "";
   let best = null; try { best = +localStorage.getItem(KEY + "-best-" + S.settings.mode) || null; } catch (e) {}
-  const notBot = S.buildings.map((b, i) => ({ b, i })).filter(x => x.b.owner !== "bot");
+  const notBuilt = S.buildings.map((b, i) => i).filter(i => S.buildings[i].owner !== "bot" && !ps.built.includes(i));
 
   const html = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
   <div class="endsum">
@@ -816,19 +863,17 @@ function renderEnd(patch) {
     <section class="panel"><h2>내 점수 계산</h2>
       <p class="sub small" style="margin:0">농장을 보고 고르면 점수가 바로 계산됩니다.</p>
       <h3>가축</h3>
-      ${ANIMALS.map(([k, nm]) => scoreRow("ps-" + k, nm, range(0, 40), ps[k], +ps[k] + r.rows[k], `기본 ${ps[k]} · 추가 ${fmt(r.rows[k])}`)).join("")}
+      ${ANIMALS.map(([k, nm]) => scoreRow("ps-" + k, `<span class="lbl">${ic(k)}${nm}</span>`, range(0, 40), ps[k], +ps[k] + r.rows[k], `기본 ${ps[k]} · 추가 ${fmt(r.rows[k])}`)).join("")}
       <h3>농장 확장</h3>
       ${scoreRow("ps-extFull", "농장 칸 3칸을 모두 쓴 확장판", range(0, 6), ps.extFull, r.ext, `가져온 확장판 ${S.me.ext}개 · 1개당 4점`)}
       <h3>건물</h3>
       ${scoreRow("ps-stalls", "축사", range(0, 6), ps.stalls, ps.stalls * STALL_VP, "1개당 1점")}
       ${scoreRow("ps-stables", "외양간", range(0, 6), ps.stables, ps.stables * STABLE_VP, "1개당 4점")}
-      ${notBot.map(({ b, i }) => {
-        const d = BLD[b.key], cur = ps.bv[i] == null ? "" : ps.bv[i];
-        const opts = [["", "없음"]].concat(d.opts ? d.opts.map(v => [v, `${v}점`]) : [[d.vp, "지음"]]);
-        const pts = ps.bv[i] == null ? 0 : b.key === STORE_KEY ? ps.res * 0.5 : +ps.bv[i];
-        return scoreRow("ps-bv-" + i, esc(d.name), opts, cur, pts, d.note || `${d.vp}점`);
-      }).join("")}
-      ${ps.bv[S.buildings.findIndex(b => b.key === STORE_KEY)] != null ? scoreRow("ps-res", "저장고 · 남은 건축 자원", range(0, 60), ps.res, ps.res * 0.5, "나무+돌+갈대 합계") : ""}
+      <p class="sub small" style="margin:0">건물 그림을 누르면 설명을 볼 수 있습니다. * 건물은 조건을 고르면 점수가 계산됩니다.</p>
+      ${bldSection(true)}${bldSection(false)}
+      ${notBuilt.length ? `<select id="addb" aria-label="기록하지 못한 건물 추가"><option value="">+ 앱에 기록하지 못한 건물 추가</option>
+        ${[true, false].map(bs => { const o = notBuilt.filter(i => !!BLD[S.buildings[i].key].basic === bs); return o.length ? `<optgroup label="${bs ? "기본 특수 건물" : "특수 건물"}">${o.map(i => `<option value="${i}">${esc(bname(S.buildings[i]))}</option>`).join("")}</optgroup>` : ""; }).join("")}</select>` : ""}
+      <div class="sdiv"></div>
       ${scoreRow("ps-extra", "기타 조정", range(-10, 20), ps.extra, r.extra, "위에서 다루지 않은 점수")}
       <div class="srow total"><span class="sl">합계</span><span></span><span class="sp num">${fmt(r.total).replace("+", "")}</span></div>
     </section>
@@ -861,11 +906,15 @@ function renderEnd(patch) {
 
   app.querySelectorAll("select[id^=ps-]").forEach(el => el.onchange = () => {
     const k = el.id.slice(3);
-    if (k.startsWith("bv-")) ps.bv[+k.slice(3)] = el.value === "" ? null : +el.value; else ps[k] = +el.value;
+    if (k.startsWith("cv-")) ps.cv[+k.slice(3)] = +el.value; else ps[k] = +el.value;
     const t = playerScore().total;
     try { const kk = KEY + "-best-" + S.settings.mode; if (t > (+localStorage.getItem(kk) || -99)) localStorage.setItem(kk, t); } catch (e) {}
     save(); renderEnd(true);
   });
+  const addb = document.getElementById("addb");
+  if (addb) addb.onchange = () => { if (addb.value === "") return; const i = +addb.value, c = COND[bname(S.buildings[i])]; ps.built.push(i); if (c && !c.auto) ps.cv[i] = c.a; save(); renderEnd(); };
+  app.querySelectorAll("[data-rm]").forEach(el => el.onclick = () => { ps.built = ps.built.filter(i => i !== +el.dataset.rm); save(); renderEnd(); });
+  app.querySelectorAll("[data-info]").forEach(el => el.onclick = () => { modal = { type: "info", key: +el.dataset.info }; renderEnd(); });
   document.getElementById("undo").onclick = undo;
   document.getElementById("newgame").onclick = () => { S = freshSetup(S); history = []; save(); render(); };
   bindModal();
@@ -881,7 +930,7 @@ function rulesHTML() {
       <li>각자 일꾼 3개, 차례를 번갈아 놓고 8라운드를 진행합니다.</li></ul></div>
     <div><h3>건물과 점수</h3><ul>
       <li>기본 특수 건물 4개(나무골조 집, 저장고, 가축 보호소, 개방형 외양간)는 항상 포함되고, 추가 특수 건물을 0–8개 더 고릅니다.</li>
-      <li>봇 점수에서 변동 점수 건물은 봇에게 농장이 없다고 보고 계산합니다 (저택 5점, 사무실 6점, 조건부 건물과 저장고 0점).</li>
+      <li>조건에 따라 점수가 달라지는 * 건물(저장고, 저택, 사무실, 확장터, 소·돼지 축사 등)은 봇에게 0점입니다. 내 점수표에서는 조건을 골라 계산합니다.</li>
       <li>축사 1점, 외양간 4점 (룰북 4쪽).</li></ul>
       <p class="sub small">게임판과 건물 이미지는 한국어판 룰북에서 가져왔습니다.</p></div>
   </div></details></section>`;
