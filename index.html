@@ -184,6 +184,21 @@ html:has(.modal), html:has(.modal) body { overflow: hidden; }
 .rm { padding: 0; width: 1.9em; height: 1.9em; border-radius: 50%; font-size: 12px; color: var(--muted); }
 .sdiv { margin-top: 8px; padding-top: 8px; border-top: 2px solid var(--line); font-size: 12px; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
 #addb { width: 100%; min-height: 40px; margin-top: 6px; }
+.home { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.mcard .art { aspect-ratio: 16 / 7; border-radius: 8px; background: #4a7a33 url("img/board.jpg") center 40% / cover; }
+.mcard .art.multi { background-color: transparent; background-image: url("img/tiles/00.jpg"), url("img/tiles/34.jpg"), url("img/tiles/38.jpg"), url("img/tiles/18.jpg");
+  background-size: 25% auto; background-position: 0% 50%, 33.3% 50%, 66.6% 50%, 100% 50%; background-repeat: no-repeat; }
+.mcard .row button { flex: 1 1 auto; min-height: 46px; }
+.msum .verdict small { display: block; font-family: var(--font-body); font-size: 12px; color: #f4f1dcb0; }
+.msettings summary { cursor: pointer; font-weight: 700; }
+.msettings input { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; }
+.msettings { margin-bottom: 14px; }
+.mgrid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.msheet.win { border-color: var(--meadow); box-shadow: 0 0 0 2px var(--meadow); }
+.mtabs { display: none; gap: 6px; margin-bottom: 10px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 6px; }
+.mtabs button { flex: 1; min-height: 44px; }
+.mtabs button.on { background: var(--meadow); border-color: var(--meadow); color: #fff; }
+@media (max-width: 900px) { .mtabs { display: flex; } .msheet:not(.on) { display: none; } }
 .srow.total { border-bottom: 0; border-top: 2px solid var(--fg); font-size: 18px; font-weight: 700; }
 .panel h3 { margin-top: 6px; }
 
@@ -402,7 +417,7 @@ function tokens(g) { return Object.entries(g || {}).filter(([, n]) => n > 0).map
 
 // ---------- 상태 ----------
 const KEY = "acbs-automa-v3";
-let S = null, history = [], modal = null, botTimer = null, load0 = null;
+let S = null, history = [], modal = null, botTimer = null;
 
 function freshSetup(prev) {
   const st = prev?.settings;
@@ -507,7 +522,7 @@ function playerPlace(id, o) {
 
 function scheduleBot() {
   clearTimeout(botTimer);
-  if (S.phase === "play" && !S.notice && whoseTurn() === "bot") botTimer = setTimeout(() => { botTurn(); save(); render(); scheduleBot(); }, 650);
+  if (view === "solo" && S.phase === "play" && !S.notice && whoseTurn() === "bot") botTimer = setTimeout(() => { botTurn(); save(); render(); scheduleBot(); }, 650);
 }
 
 function endRound() {
@@ -548,38 +563,37 @@ function animalBonus(type, n) {
   const [a, b, c] = BONUS[type];
   return n < a ? 0 : n < b ? 1 : n < c ? 2 : 3 + (n - c);
 }
-function initScore() {
-  // built: 내가 지은 건물(S.buildings 번호), cv: * 건물의 조건 값
-  const built = S.buildings.map((b, i) => b.owner === "player" ? i : -1).filter(i => i >= 0), cv = {};
-  built.forEach(i => { const c = COND[BLD[S.buildings[i].key].name]; if (c && !c.auto) cv[i] = c.a; });
-  return { sheep: 0, pig: 0, cow: 0, horse: 0, extFull: 0, stalls: S.me.stalls, stables: 0, built, cv, extra: 0 };
-}
-function bldPts(i) {
-  const d = BLD[S.buildings[i].key], c = COND[d.name], ps = S.ps;
-  return c ? c.f(+(c.auto ? ps[c.auto] : ps.cv[i] ?? c.a)) : d.vp;
-}
-function playerScore() {
-  const ps = S.ps, r = { animals: 0, bonus: 0, ext: ps.extFull * 4, bld: 0, rows: {} };
-  for (const [k] of ANIMALS) { r.animals += +ps[k]; r.rows[k] = animalBonus(k, +ps[k]); r.bonus += r.rows[k]; }
-  r.bld = ps.stalls * STALL_VP + ps.stables * STABLE_VP;
-  ps.built.forEach(i => { r.bld += bldPts(i); });
-  r.extra = +ps.extra;
+// ---------- 점수표 (솔로·멀티 공용) ----------
+// sheet: 가축 수, 확장판, 축사/외양간, built = 지은 건물(BLD 번호), cv = * 건물 조건 값, extra = 기타
+function newSheet(o) { return Object.assign({ sheep: 0, pig: 0, cow: 0, horse: 0, extFull: 0, stalls: 0, stables: 0, built: [], cv: {}, extra: 0 }, o); }
+function addBuilt(sh, k) { if (sh.built.includes(k)) return; sh.built.push(k); const c = COND[BLD[k].name]; if (c && !c.auto) sh.cv[k] = c.a; }
+function bldPts(sh, k) { const d = BLD[k], c = COND[d.name]; return c ? c.f(+(c.auto ? sh[c.auto] : sh.cv[k] ?? c.a)) : d.vp; }
+function sheetScore(sh) {
+  const r = { animals: 0, bonus: 0, ext: sh.extFull * 4, bld: sh.stalls * STALL_VP + sh.stables * STABLE_VP, rows: {} };
+  for (const [k] of ANIMALS) { r.animals += +sh[k]; r.rows[k] = animalBonus(k, +sh[k]); r.bonus += r.rows[k]; }
+  sh.built.forEach(k => { r.bld += bldPts(sh, k); });
+  r.extra = +sh.extra;
   r.total = r.animals + r.bonus + r.ext + r.bld + r.extra;
   return r;
+}
+function initScore() {
+  const sh = newSheet({ stalls: S.me.stalls, v: 2 });
+  S.buildings.forEach(b => { if (b.owner === "player") addBuilt(sh, b.key); });
+  return sh;
 }
 
 // ---------- 렌더 ----------
 const app = document.getElementById("app");
-function header(extra) {
-  return `<header class="top"><div><h1>크고 작은 생물들 솔로 봇</h1>
-    <p class="sub">아그리콜라: 크고 작은 생물들 빅박스 · 1인 플레이용 오토마 (Sam Carpenter 솔로 변형 v1.1)</p></div>
+function header(extra, title, sub) {
+  return `<header class="top"><div><h1>${title || "크고 작은 생물들 솔로 봇"}</h1>
+    <p class="sub">${sub || "아그리콜라: 크고 작은 생물들 빅박스 · 1인 플레이용 오토마 (Sam Carpenter 솔로 변형 v1.1)"}</p></div>
     <div class="top-actions">${extra || ""}</div></header>`;
 }
 
 function renderSetup() {
   const st = S.settings;
   const n = st.extras.length;
-  app.innerHTML = header(load0 ? `<button id="resume">저장된 게임 이어하기</button>` : "") + `
+  app.innerHTML = header(`<button data-act="home">처음으로</button>`) + `
   <div class="setup">
     <section class="panel"><h2>난이도</h2>
       <div class="modes">${Object.entries(MODES).map(([k, m]) => `
@@ -630,8 +644,7 @@ function renderSetup() {
   document.getElementById("start").onclick = go;
   app.querySelector('[data-act="start"]').onclick = go;
   bindModal();
-  const r = document.getElementById("resume");
-  if (r) r.onclick = () => { S = load0.S; history = load0.history || []; load0 = null; render(); scheduleBot(); };
+  bindHome();
 }
 
 function boardHTML(myTurn) {
@@ -686,7 +699,7 @@ function renderPlay() {
   const turnTxt = turn === "player" ? "내 차례 · 칸이나 건물을 누르세요" : turn === "bot" ? "봇이 고르는 중…" : "일하기 단계 끝";
   const sc = botScore(), lb = S.lastBot;
 
-  app.innerHTML = header(`<button class="m-hide" data-act="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button id="newgame">새 게임</button>`) + `
+  app.innerHTML = header(`<button data-act="home">처음으로</button><button class="m-hide" data-act="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button id="newgame">새 게임</button>`) + `
   <div class="status">
     <span class="round">${S.round}라운드</span><span class="pips" aria-label="8라운드 중 ${S.round}라운드">${pips}</span>
     <span class="workers"><span><span class="dot p"></span>나 ${pLeft}</span><span><span class="dot b"></span>봇 ${bLeft}</span></span>
@@ -728,6 +741,7 @@ function renderPlay() {
   app.querySelectorAll('[data-act="undo"]').forEach(b => b.onclick = undo);
   app.querySelectorAll('[data-act="endround"]').forEach(b => b.onclick = endRound);
   document.getElementById("newgame").onclick = () => { modal = { type: "confirmNew" }; render(); };
+  bindHome();
   bindModal();
 }
 
@@ -784,7 +798,7 @@ function infoHTML(k) {
 }
 
 function modalHTML() {
-  if (S.notice) {
+  if (view === "solo" && S.notice) {
     const n = S.notice;
     const btn = n.next ? (S.round >= 8 ? "확인 · 점수 계산" : `확인 · ${S.round + 1}라운드 시작`) : "확인";
     return `<div class="modal" id="modal"><div class="box notice" role="alertdialog" aria-modal="true" aria-labelledby="ntitle">
@@ -797,6 +811,8 @@ function modalHTML() {
   let inner = "";
   if (modal.type === "space") inner = spaceModal(modal.id, modal.bi);
   else if (modal.type === "info") inner = `<span class="label">건물 설명</span>${infoHTML(modal.key)}`;
+  else if (modal.type === "confirmReset") inner = `<h3>점수표를 초기화할까요?</h3><p class="sub" style="margin:0">모든 플레이어의 입력이 지워집니다. 이름은 유지됩니다.</p>
+      <div class="choice"><button class="primary" data-go="resetm">초기화</button></div>`;
   else if (modal.type === "confirmNew") inner = `<h3>새 게임을 시작할까요?</h3><p class="sub" style="margin:0">진행 중인 게임은 지워집니다.</p>
       <div class="choice"><button class="primary" data-go="new">새 게임 설정으로</button></div>`;
   return `<div class="modal" id="modal"><div class="box" role="dialog" aria-modal="true">${inner}<button id="mclose">${modal.type === "info" ? "닫기" : "취소"}</button></div></div>`;
@@ -812,6 +828,7 @@ function bindModal() {
   m.onclick = e => { if (e.target === m) { modal = null; render(); } };
   m.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
     const go = b.dataset.go;
+    if (go === "resetm") { M.players.forEach((sh, i) => { M.players[i] = newSheet({ name: sh.name }); }); saveMulti(); modal = null; render(); return; }
     if (go === "new") { clearTimeout(botTimer); S = freshSetup(S); history = []; modal = null; save(); render(); return; }
     const id = modal.id;
     if (go === "pick") { modal = { type: "space", id: 14, bi: +b.dataset.v }; render(); return; }
@@ -824,36 +841,83 @@ function bindModal() {
 }
 
 function ic(k) { return `<img class="ic" src="img/res/${k}.png" alt="">`; }
-function bldRow(i) {
-  const ps = S.ps, b = S.buildings[i], d = BLD[b.key], c = COND[d.name];
-  let ctl = "<span></span>", hint = `${d.vp}점`;
-  if (c && !c.auto) {
-    ctl = `<select id="ps-cv-${i}" aria-label="${esc(d.name)}: ${esc(c.q)}">${range(c.a, c.b).map(v => opt(v, ps.cv[i] ?? c.a)).join("")}</select>`;
-    hint = `${(c.icons || []).map(ic).join("")}${esc(c.q)}`;
-  } else if (c) hint = `${esc(c.q)} · 지금 ${G[c.auto]} ${ps[c.auto]}마리`;
-  return `<div class="srow b"><span class="sl"><button class="sthumb" data-info="${b.key}" aria-label="${esc(d.name)} 설명 보기"><img src="${img(b.key)}" alt=""></button>
-    <span class="bn"><b>${esc(d.name)}${c ? ' <span class="star">*</span>' : ""}</b><small>${hint}</small></span></span>
-    ${ctl}<span class="sp num">${fmt(bldPts(i))}</span><button class="rm" data-rm="${i}" aria-label="${esc(d.name)} 목록에서 빼기">✕</button></div>`;
-}
-function bldSection(basic) {
-  const rows = S.ps.built.filter(i => !!BLD[S.buildings[i].key].basic === basic);
-  return `<div class="sdiv">${basic ? "기본 특수 건물" : "특수 건물"}</div>` +
-    (rows.length ? rows.map(bldRow).join("") : `<p class="sub small" style="margin:4px 0">지은 건물 없음</p>`);
-}
 function scoreRow(id, label, options, cur, pts, hint) {
   return `<label class="srow" for="${id}"><span class="sl">${label}${hint ? `<small>${hint}</small>` : ""}</span>
     <select id="${id}">${options.map(o => Array.isArray(o) ? opt(o[0], cur, o[1]) : opt(o, cur)).join("")}</select>
     <span class="sp num">${fmt(pts)}</span></label>`;
 }
 function fmt(n) { return (n > 0 ? "+" : "") + (Number.isInteger(n) ? n : n.toFixed(1)); }
+function bldRow(sh, k, pfx) {
+  const d = BLD[k], c = COND[d.name];
+  let ctl = "<span></span>", hint = `${d.vp}점`;
+  if (c && !c.auto) {
+    ctl = `<select id="${pfx}-cv-${k}" aria-label="${esc(d.name)}: ${esc(c.q)}">${range(c.a, c.b).map(v => opt(v, sh.cv[k] ?? c.a)).join("")}</select>`;
+    hint = `${(c.icons || []).map(ic).join("")}${esc(c.q)}`;
+  } else if (c) hint = `${esc(c.q)} · 지금 ${G[c.auto]} ${sh[c.auto]}마리`;
+  return `<div class="srow b"><span class="sl"><button class="sthumb" data-info="${k}" aria-label="${esc(d.name)} 설명 보기"><img src="${img(k)}" alt=""></button>
+    <span class="bn"><b>${esc(d.name)}${c ? ' <span class="star">*</span>' : ""}</b><small>${hint}</small></span></span>
+    ${ctl}<span class="sp num">${fmt(bldPts(sh, k))}</span><button class="rm" data-rm="${pfx}:${k}" aria-label="${esc(d.name)} 목록에서 빼기">✕</button></div>`;
+}
+function bldSection(sh, pfx, basic) {
+  const rows = sh.built.filter(k => !!BLD[k].basic === basic);
+  return `<div class="sdiv">${basic ? "기본 특수 건물" : "특수 건물"}</div>` +
+    (rows.length ? rows.map(k => bldRow(sh, k, pfx)).join("") : `<p class="sub small" style="margin:4px 0">지은 건물 없음</p>`);
+}
+// o: addable(추가할 수 있는 건물), addLabel, extHint
+function sheetHTML(sh, pfx, o) {
+  const r = sheetScore(sh);
+  const add = o.addable.length ? `<select id="${pfx}-add" aria-label="${o.addLabel}"><option value="">+ ${o.addLabel}</option>
+    ${[true, false].map(bs => { const l = o.addable.filter(k => !!BLD[k].basic === bs).sort((a, b) => BLD[a].name.localeCompare(BLD[b].name, "ko")); return l.length ? `<optgroup label="${bs ? "기본 특수 건물" : "특수 건물"}">${l.map(k => `<option value="${k}">${esc(BLD[k].name)} · ${vpText(BLD[k])}</option>`).join("")}</optgroup>` : ""; }).join("")}</select>` : "";
+  return `<h3>가축</h3>
+    ${ANIMALS.map(([k, nm]) => scoreRow(`${pfx}-${k}`, `<span class="lbl">${ic(k)}${nm}</span>`, range(0, 40), sh[k], +sh[k] + r.rows[k], `기본 ${sh[k]} · 추가 ${fmt(r.rows[k])}`)).join("")}
+    <h3>농장 확장</h3>
+    ${scoreRow(`${pfx}-extFull`, "농장 칸 3칸을 모두 쓴 확장판", range(0, 6), sh.extFull, r.ext, o.extHint || "1개당 4점")}
+    <h3>건물</h3>
+    ${scoreRow(`${pfx}-stalls`, "축사", range(0, 6), sh.stalls, sh.stalls * STALL_VP, "1개당 1점")}
+    ${scoreRow(`${pfx}-stables`, "외양간", range(0, 6), sh.stables, sh.stables * STABLE_VP, "1개당 4점")}
+    <p class="sub small" style="margin:0">건물 그림을 누르면 설명을 볼 수 있습니다. * 건물은 조건을 고르면 점수가 계산됩니다.</p>
+    ${bldSection(sh, pfx, true)}${bldSection(sh, pfx, false)}${add}
+    <div class="sdiv"></div>
+    ${scoreRow(`${pfx}-extra`, "기타 조정", range(-10, 20), sh.extra, r.extra, "위에서 다루지 않은 점수")}
+    <div class="srow total"><span class="sl">합계</span><span></span><span class="sp num">${fmt(r.total).replace("+", "")}</span></div>`;
+}
+// onChange(full): full=true면 줄 구성이 바뀜(다시 그리기), false면 숫자만 갱신
+function bindSheet(sh, pfx, onChange) {
+  app.querySelectorAll(`select[id^="${pfx}-"]`).forEach(el => el.onchange = () => {
+    const k = el.id.slice(pfx.length + 1);
+    if (k === "add") { if (el.value === "") return; addBuilt(sh, +el.value); onChange(true); return; }
+    if (k.startsWith("cv-")) sh.cv[+k.slice(3)] = +el.value; else sh[k] = +el.value;
+    onChange(false);
+  });
+  app.querySelectorAll("[data-rm]").forEach(el => {
+    const [p, k] = el.dataset.rm.split(":");
+    if (p === pfx) el.onclick = () => { sh.built = sh.built.filter(x => x !== +k); delete sh.cv[+k]; onChange(true); };
+  });
+}
+function bindInfo(again) { app.querySelectorAll("[data-info]").forEach(el => el.onclick = () => { modal = { type: "info", key: +el.dataset.info }; again(); }); }
+// 숫자만 바뀌었으면 화면을 다시 그리지 않고 글자만 바꿈 (모바일 선택 창이 바로 닫히도록)
+function paint(html, patch) {
+  if (patch) {
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
+    if (tmp.querySelectorAll("select").length === app.querySelectorAll("select").length) {
+      for (const sel of [".endsum", ".mtabs b", ".msheet h2", ".srow .sl small", ".srow .sp"]) {
+        const a = app.querySelectorAll(sel), b = tmp.querySelectorAll(sel);
+        a.forEach((el, i) => { if (b[i] && el.innerHTML !== b[i].innerHTML) el.innerHTML = b[i].innerHTML; });
+      }
+      return true;
+    }
+  }
+  app.innerHTML = html; return false;
+}
 
 function renderEnd(patch) {
-  const sc = botScore(), ps = S.ps, r = playerScore();
+  if (!S.ps || S.ps.v !== 2) S.ps = initScore();
+  const sc = botScore(), ps = S.ps, r = sheetScore(ps);
   const verdict = sc ? (r.total > sc.total ? "승리!" : r.total === sc.total ? "동점" : "봇의 승리") : "";
   let best = null; try { best = +localStorage.getItem(KEY + "-best-" + S.settings.mode) || null; } catch (e) {}
-  const notBuilt = S.buildings.map((b, i) => i).filter(i => S.buildings[i].owner !== "bot" && !ps.built.includes(i));
+  const addable = S.buildings.filter(b => b.owner !== "bot" && !ps.built.includes(b.key)).map(b => b.key);
 
-  const html = header(`<button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
+  const html = header(`<button data-act="home">처음으로</button><button id="undo" ${history.length ? "" : "disabled"}>되돌리기</button><button class="primary" id="newgame">새 게임</button>`) + `
   <div class="endsum">
     <div><span class="label">내 점수</span><div class="n">${fmt(r.total).replace("+", "")}</div></div>
     ${sc ? `<div><span class="label">봇 점수</span><div class="n">${sc.total}</div></div><div class="verdict">${verdict}</div>`
@@ -862,20 +926,7 @@ function renderEnd(patch) {
   <div class="endgrid">
     <section class="panel"><h2>내 점수 계산</h2>
       <p class="sub small" style="margin:0">농장을 보고 고르면 점수가 바로 계산됩니다.</p>
-      <h3>가축</h3>
-      ${ANIMALS.map(([k, nm]) => scoreRow("ps-" + k, `<span class="lbl">${ic(k)}${nm}</span>`, range(0, 40), ps[k], +ps[k] + r.rows[k], `기본 ${ps[k]} · 추가 ${fmt(r.rows[k])}`)).join("")}
-      <h3>농장 확장</h3>
-      ${scoreRow("ps-extFull", "농장 칸 3칸을 모두 쓴 확장판", range(0, 6), ps.extFull, r.ext, `가져온 확장판 ${S.me.ext}개 · 1개당 4점`)}
-      <h3>건물</h3>
-      ${scoreRow("ps-stalls", "축사", range(0, 6), ps.stalls, ps.stalls * STALL_VP, "1개당 1점")}
-      ${scoreRow("ps-stables", "외양간", range(0, 6), ps.stables, ps.stables * STABLE_VP, "1개당 4점")}
-      <p class="sub small" style="margin:0">건물 그림을 누르면 설명을 볼 수 있습니다. * 건물은 조건을 고르면 점수가 계산됩니다.</p>
-      ${bldSection(true)}${bldSection(false)}
-      ${notBuilt.length ? `<select id="addb" aria-label="기록하지 못한 건물 추가"><option value="">+ 앱에 기록하지 못한 건물 추가</option>
-        ${[true, false].map(bs => { const o = notBuilt.filter(i => !!BLD[S.buildings[i].key].basic === bs); return o.length ? `<optgroup label="${bs ? "기본 특수 건물" : "특수 건물"}">${o.map(i => `<option value="${i}">${esc(bname(S.buildings[i]))}</option>`).join("")}</optgroup>` : ""; }).join("")}</select>` : ""}
-      <div class="sdiv"></div>
-      ${scoreRow("ps-extra", "기타 조정", range(-10, 20), ps.extra, r.extra, "위에서 다루지 않은 점수")}
-      <div class="srow total"><span class="sl">합계</span><span></span><span class="sp num">${fmt(r.total).replace("+", "")}</span></div>
+      ${sheetHTML(ps, "ps", { addable, addLabel: "앱에 기록하지 못한 건물 추가", extHint: `가져온 확장판 ${S.me.ext}개 · 1개당 4점` })}
     </section>
     <div class="side">
       <section class="panel"><h2>봇 최종 점수 · ${MODES[S.settings.mode].nm}</h2>
@@ -892,32 +943,94 @@ function renderEnd(patch) {
     </div>
   </div>` + modalHTML();
 
-  if (patch) {
-    const tmp = document.createElement("div"); tmp.innerHTML = html;
-    if (tmp.querySelectorAll("select").length === app.querySelectorAll("select").length) {
-      for (const sel of [".endsum", ".srow .sl small", ".srow .sp"]) {
-        const a = app.querySelectorAll(sel), b = tmp.querySelectorAll(sel);
-        a.forEach((el, i) => { if (b[i] && el.innerHTML !== b[i].innerHTML) el.innerHTML = b[i].innerHTML; });
-      }
-      return;
-    }
-  }
-  app.innerHTML = html;
-
-  app.querySelectorAll("select[id^=ps-]").forEach(el => el.onchange = () => {
-    const k = el.id.slice(3);
-    if (k.startsWith("cv-")) ps.cv[+k.slice(3)] = +el.value; else ps[k] = +el.value;
-    const t = playerScore().total;
+  if (paint(html, patch)) return;
+  bindSheet(ps, "ps", full => {
+    const t = sheetScore(ps).total;
     try { const kk = KEY + "-best-" + S.settings.mode; if (t > (+localStorage.getItem(kk) || -99)) localStorage.setItem(kk, t); } catch (e) {}
-    save(); renderEnd(true);
+    save(); renderEnd(!full);
   });
-  const addb = document.getElementById("addb");
-  if (addb) addb.onchange = () => { if (addb.value === "") return; const i = +addb.value, c = COND[bname(S.buildings[i])]; ps.built.push(i); if (c && !c.auto) ps.cv[i] = c.a; save(); renderEnd(); };
-  app.querySelectorAll("[data-rm]").forEach(el => el.onclick = () => { ps.built = ps.built.filter(i => i !== +el.dataset.rm); save(); renderEnd(); });
-  app.querySelectorAll("[data-info]").forEach(el => el.onclick = () => { modal = { type: "info", key: +el.dataset.info }; renderEnd(); });
+  bindInfo(() => renderEnd());
+  bindHome();
   document.getElementById("undo").onclick = undo;
   document.getElementById("newgame").onclick = () => { S = freshSetup(S); history = []; save(); render(); };
   bindModal();
+}
+
+// ---------- 멀티플레이 점수 계산 ----------
+const MKEY = KEY + "-multi";
+let M = null;
+function freshMulti() { return { n: 2, first: 0, tab: 0, players: range(1, 4).map(i => newSheet({ name: `플레이어 ${i}` })) }; }
+function saveMulti() { try { localStorage.setItem(MKEY, JSON.stringify(M)); } catch (e) {} }
+function loadMulti() { try { const d = JSON.parse(localStorage.getItem(MKEY) || "null"); if (d && d.players) return d; } catch (e) {} return freshMulti(); }
+
+function multiWinner(totals) {
+  const best = Math.max(...totals), top = totals.map((t, i) => t === best ? i : -1).filter(i => i >= 0);
+  if (top.length === 1) return { idx: top, note: "" };
+  // 룰북 8쪽: 동점이면 1라운드에 시작 플레이어가 아니었던 사람이 승리
+  const notFirst = top.filter(i => i !== M.first);
+  if (top.includes(M.first) && notFirst.length === 1) return { idx: notFirst, note: "동점 · 1라운드 시작 플레이어가 아닌 사람 승리" };
+  return { idx: top, note: "동점" };
+}
+
+function renderMulti(patch) {
+  const P = M.players.slice(0, M.n);
+  const totals = P.map(sh => sheetScore(sh).total);
+  const win = multiWinner(totals);
+  const taken = P.flatMap(sh => sh.built);
+  const addable = BLD.map((_, k) => k).filter(k => !taken.includes(k));
+  M.tab = Math.min(M.tab, M.n - 1);
+
+  const html = header(`<button data-act="home">처음으로</button><button id="mreset">초기화</button>`, "멀티플레이 점수 계산", "게임이 끝난 뒤 플레이어별 농장을 보고 고르면 점수가 계산됩니다.") + `
+  <div class="endsum msum">${P.map((sh, i) => `<div><span class="label">${esc(sh.name)}</span><div class="n">${fmt(totals[i]).replace("+", "")}</div></div>`).join("")}
+    <div class="verdict">${win.idx.length === 1 ? `${esc(P[win.idx[0]].name)} 승리` : "동점"}${win.note && win.idx.length === 1 ? `<small>${win.note}</small>` : ""}</div></div>
+  <details class="panel msettings"><summary>플레이어 설정</summary>
+    <div class="row">
+      <label class="field"><span class="label">인원 (기본 게임은 2인)</span><select id="mn">${range(2, 4).map(v => opt(v, M.n, `${v}명`)).join("")}</select></label>
+      <label class="field"><span class="label">1라운드 시작 플레이어 (동점 판정용)</span><select id="mfirst">${P.map((sh, i) => opt(i, M.first, esc(sh.name))).join("")}</select></label>
+    </div>
+    <div class="row">${P.map((sh, i) => `<label class="field"><span class="label">플레이어 ${i + 1} 이름</span><input id="mname-${i}" value="${esc(sh.name)}" maxlength="12"></label>`).join("")}</div>
+  </details>
+  <div class="mtabs" role="tablist">${P.map((sh, i) => `<button role="tab" data-tab="${i}" aria-selected="${i === M.tab}" class="${i === M.tab ? "on" : ""}">${esc(sh.name)} <b class="num">${fmt(totals[i]).replace("+", "")}</b></button>`).join("")}</div>
+  <div class="mgrid">${P.map((sh, i) => `<section class="panel msheet${i === M.tab ? " on" : ""}${win.idx.length === 1 && win.idx[0] === i ? " win" : ""}"><h2>${esc(sh.name)}</h2>
+    ${sheetHTML(sh, "m" + i, { addable, addLabel: "지은 건물 추가" })}</section>`).join("")}</div>` + modalHTML();
+
+  if (paint(html, patch)) return;
+  P.forEach((sh, i) => bindSheet(sh, "m" + i, full => { saveMulti(); renderMulti(!full); }));
+  bindInfo(() => renderMulti());
+  bindHome();
+  document.getElementById("mn").onchange = e => { M.n = +e.target.value; saveMulti(); renderMulti(); };
+  document.getElementById("mfirst").onchange = e => { M.first = +e.target.value; saveMulti(); renderMulti(); };
+  P.forEach((sh, i) => { document.getElementById("mname-" + i).onchange = e => { sh.name = e.target.value.trim() || `플레이어 ${i + 1}`; saveMulti(); renderMulti(); }; });
+  app.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { M.tab = +b.dataset.tab; saveMulti(); renderMulti(); });
+  document.getElementById("mreset").onclick = () => { modal = { type: "confirmReset" }; renderMulti(); };
+  app.querySelector(".msettings").open = !!M.openSettings;
+  app.querySelector(".msettings").ontoggle = e => { M.openSettings = e.target.open; };
+  bindModal();
+}
+
+// ---------- 시작 메뉴 ----------
+let view = "home";
+function bindHome() { app.querySelectorAll('[data-act="home"]').forEach(b => b.onclick = () => { clearTimeout(botTimer); modal = null; view = "home"; render(); }); }
+function renderHome() {
+  const going = S.phase === "play" || S.phase === "end";
+  const mUsed = M.players.slice(0, M.n).some(sh => sheetScore(sh).total !== -12 || sh.built.length);
+  app.innerHTML = header("", "아그리콜라: 크고 작은 생물들", "빅박스 플레이 도우미") + `
+  <div class="home">
+    <section class="panel mcard"><div class="art solo"></div>
+      <h2>오토마와 솔로 플레이</h2>
+      <p class="sub" style="margin:0">봇이 일꾼을 놓고 칸을 막습니다. 실제 게임판 위에서 자원 보충과 봇 행동을 앱이 처리하고, 끝나면 점수를 계산합니다.</p>
+      <div class="row">${going ? `<button class="primary" id="hsResume">진행 중인 게임 이어하기 (${S.phase === "end" ? "점수 계산" : S.round + "라운드"})</button><button id="hsNew">새 게임</button>` : `<button class="primary" id="hsNew">시작하기</button>`}</div>
+    </section>
+    <section class="panel mcard"><div class="art multi"></div>
+      <h2>멀티플레이 점수 계산</h2>
+      <p class="sub" style="margin:0">여럿이 실물로 플레이한 뒤, 플레이어별 가축·확장판·건물을 고르면 점수와 승자를 계산합니다.</p>
+      <div class="row"><button class="primary" id="hm">${mUsed ? "이어서 계산하기" : "점수 계산 열기"}</button></div>
+    </section>
+  </div>`;
+  const go = (fn) => () => { fn(); render(); scheduleBot(); };
+  const r = document.getElementById("hsResume"); if (r) r.onclick = go(() => { view = "solo"; });
+  document.getElementById("hsNew").onclick = go(() => { if (going) { S = freshSetup(S); history = []; save(); } view = "solo"; });
+  document.getElementById("hm").onclick = go(() => { view = "multi"; });
 }
 
 function rulesHTML() {
@@ -936,15 +1049,19 @@ function rulesHTML() {
   </div></details></section>`;
 }
 
-function render() { if (S.phase === "setup") renderSetup(); else if (S.phase === "play") renderPlay(); else renderEnd(); }
+function render() {
+  if (view === "home") return renderHome();
+  if (view === "multi") return renderMulti();
+  if (S.phase === "setup") renderSetup(); else if (S.phase === "play") renderPlay(); else renderEnd();
+}
 
 function start(hot) {
-  if (hot && hot.S && hot.S.settings?.extras) { S = hot.S; history = hot.history || []; }
-  else if (load()) { if (S.phase !== "setup") { load0 = { S, history }; S = freshSetup(S); history = []; } }
-  else S = freshSetup(null);
+  M = hot?.M || loadMulti();
+  if (hot && hot.S && hot.S.settings?.extras) { S = hot.S; history = hot.history || []; view = hot.view || "home"; }
+  else if (!load()) S = freshSetup(null);
   render(); scheduleBot();
 }
-window.claude?.hot?.snapshot?.(() => ({ S, history }));
+window.claude?.hot?.snapshot?.(() => ({ S, history, M, view }));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
 </script>
